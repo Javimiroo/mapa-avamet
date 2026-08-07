@@ -78,9 +78,15 @@ que és la URL que ja porta `privat.html`).
   superfície interpolada. Els períodes llargs es van completant a mesura que
   l'històric acumula dies.
 
-## Fase 3 (pendent)
+## Previsió WindNinja per zona (tauler d'incendi)
 
-- **Previsió WindNinja per zona** (tauler d'incendi): cal portar
-  `windninja_prep.py`/`windninja_zona.yml` a AVAMET. Els botons de previsió del
-  tauler donen error mentrestant.
-- **QPE de radar**: descartada de moment per decisió de Javi.
+Portada a AVAMET: `windninja_prep.py` s'inicialitza amb les estacions AVAMET de
+la publicació dins de la caixa (o, si no n'hi ha cap, amb el vent de la més
+propera). Workflow `windninja_zona_wf.yml` → moure'l a
+`.github\workflows\windninja_zona.yml`. El Worker ja el dispara pel nom per
+defecte, no cal tocar-li res. Els botons de previsió del tauler d'incendi
+queden operatius.
+
+## QPE de radar
+
+Descartada de moment per decisió de Javi.
