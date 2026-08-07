@@ -40,8 +40,9 @@ jobs:
         run: |
           if git clone --branch arxiu --depth 1 \
                "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" _arxiu 2>/dev/null; then
-            rm -rf arxiu
+            rm -rf arxiu arxiu-vent
             [ -d _arxiu/arxiu ] && mv _arxiu/arxiu arxiu
+            [ -d _arxiu/arxiu-vent ] && mv _arxiu/arxiu-vent arxiu-vent
             [ -f _arxiu/avamet_estacions.json ] && cp _arxiu/avamet_estacions.json avamet_estacions.json
             rm -rf _arxiu
             echo "arxiu recuperat de la branca 'arxiu' ($(ls arxiu 2>/dev/null | wc -l) fitxers)"
@@ -61,6 +62,7 @@ jobs:
         run: |
           PUB=$(mktemp -d)
           [ -d arxiu ] && cp -r arxiu "$PUB/"
+          [ -d arxiu-vent ] && cp -r arxiu-vent "$PUB/"
           [ -f avamet_estacions.json ] && cp avamet_estacions.json "$PUB/"
           if [ -z "$(ls -A "$PUB")" ]; then echo "res a arxivar"; exit 0; fi
           cd "$PUB"
@@ -79,6 +81,7 @@ jobs:
         run: |
           PUB=$(mktemp -d)
           [ -f dades_privat.enc ] && cp dades_privat.enc "$PUB/" || { echo "avis: dades_privat.enc no existeix"; exit 0; }
+          [ -f vent_privat.enc ] && cp vent_privat.enc "$PUB/" || echo "avis: vent_privat.enc encara no es genera"
           cd "$PUB"
           git init -q -b dades
           git add -A
