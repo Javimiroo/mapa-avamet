@@ -512,7 +512,7 @@
 
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
       <button class="btn primary" id="exportar" style="width:100%">📷 Generar imatge</button>
-      <p class="muted" style="font-size:11px;margin:7px 0 0">PNG amb el/els mapes actuals, la marca Bombers, el nom i perímetre de l'incendi, les llegendes i l'hora.</p>
+      <p class="muted" style="font-size:11px;margin:7px 0 0">PNG amb el/els mapes actuals, el nom i perímetre de l'incendi, les llegendes i l'hora.</p>
     </div>
   </div>
   <div id="map"></div>
@@ -1598,6 +1598,30 @@ function dibuixaLlegendaExport(c, spec, x, y, w, S){
   c.fillText(extra, x+w/2, by+bh+18*S);
   c.restore();
 }
+const RAD_LEG={
+  echotop:{titol:'Echotop — alçada del top (km)',
+    cols:['#0000fc','#0082ff','#00beff','#00ffff','#438323','#96c800','#00fa00','#ffff00','#ffaa00','#ff6b00','#fc0000','#c80050','#820a6e'],
+    ticks:['1','2','3','4','5','6','7','8','10','12','14','16','20','']},
+  composit:{titol:'Radar — reflectivitat (dBZ)',
+    cols:['#eff2f9','#0000fc','#0094fc','#00fcfc','#438323','#00c000','#00ff00','#ffff00','#ffbb00','#ff7f00','#ff0000','#c8005a'],
+    ticks:['5','15','20','25','30','35','40','45','50','55','60','65','']}
+};
+function dibuixaLlegendaRadar(c,x,y,S){
+  const prod=($('radarProd')&&$('radarProd').value)||'echotop_composit';
+  const L=RAD_LEG[prod==='composit'?'composit':'echotop'];
+  const cw=13*S, ch=11*S, n=L.cols.length, w=n*cw+16*S, hh=44*S;
+  c.save();
+  c.fillStyle='rgba(255,255,255,0.92)'; c.strokeStyle='#999'; c.lineWidth=S;
+  c.fillRect(x,y,w,hh); c.strokeRect(x,y,w,hh);
+  c.fillStyle='#111'; c.font='bold '+(10*S)+'px Arial'; c.textAlign='left'; c.textBaseline='top';
+  c.fillText(L.titol, x+8*S, y+5*S);
+  const bx=x+8*S, by=y+17*S;
+  for(let i=0;i<n;i++){ c.fillStyle=L.cols[i]; c.fillRect(bx+i*cw,by,cw,ch); }
+  c.strokeStyle='#777'; c.strokeRect(bx,by,n*cw,ch);
+  c.fillStyle='#222'; c.font=(8.5*S)+'px Arial'; c.textAlign='center'; c.textBaseline='top';
+  for(let i=0;i<L.ticks.length;i++){ if(L.ticks[i]) c.fillText(L.ticks[i], bx+i*cw, by+ch+2*S); }
+  c.restore();
+}
 function descripcioFiltres(){
   const parts=[];
   if(timeT!=null){ parts.push('Vista històrica: '+fmtTemps(timeT)); }
@@ -1623,9 +1647,22 @@ async function generarImatge(){
     const panes = comboActive
       ? [{el:$('map'),mapObj:map,spec:specWithThr(comboActive.a)},{el:$('map2'),mapObj:map2,spec:specWithThr(comboActive.b)}]
       : [{el:$('map'),mapObj:map,spec:especMapaUnic()}];
-    const opts={useCORS:true, backgroundColor:'#e8e8e8', scale:2, logging:false,
-      ignoreElements:el=>el.classList&&(el.classList.contains('leaflet-control-zoom')||el.classList.contains('leaflet-overlay-pane'))};
-    for(const p of panes){ p.canvas=await html2canvas(p.el, opts); }
+    const igBase=el=>el.classList&&(el.classList.contains('leaflet-control-zoom')||el.classList.contains('leaflet-overlay-pane'));
+    const opts={useCORS:true, backgroundColor:'#e8e8e8', scale:2, logging:false, ignoreElements:igBase};
+    const radarActiu=$('radarOn') && $('radarOn').checked && radOverlay;
+    if(!radarActiu){
+      for(const p of panes){ p.canvas=await html2canvas(p.el, opts); }
+    }else{
+      // 1a passada: NOMÉS el fons (sense pastilles/barbes) · 2a: NOMÉS les dades
+      // (transparent). Així el radar es pot intercalar ENTRE el fons i les dades.
+      for(const p of panes){
+        p.canvas=await html2canvas(p.el, Object.assign({},opts,{ignoreElements:el=>igBase(el)||(el.classList&&(el.classList.contains('leaflet-marker-pane')||el.classList.contains('leaflet-shadow-pane')||el.classList.contains('leaflet-tooltip-pane')||el.classList.contains('leaflet-popup-pane')))}));
+        const bg=p.el.style.background; p.el.style.background='transparent';
+        try{
+          p.canvasData=await html2canvas(p.el, Object.assign({},opts,{backgroundColor:null,ignoreElements:el=>igBase(el)||(el.classList&&el.classList.contains('leaflet-tile-pane'))}));
+        }finally{ p.el.style.background=bg; }
+      }
+    }
     const S=2, pad=22*S, gap=18*S, headerH=88*S, legH=66*S, footH=64*S;
     const filtreTxt=descripcioFiltres();
     const filtreH=filtreTxt?30*S:0;
@@ -1636,9 +1673,8 @@ async function generarImatge(){
     const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
     const c=cv.getContext('2d');
     c.fillStyle='#fff'; c.fillRect(0,0,W,H);
-    const logoW=dibuixaLogoBombers(c, pad, pad+6*S, headerH*0.66);
     c.fillStyle='#111'; c.textBaseline='middle'; c.textAlign='left'; c.font='bold '+(30*S)+'px Arial';
-    const tx=pad+logoW+30*S;
+    const tx=pad;
     c.fillText('SITUACIÓ METEOROLÒGICA', tx, pad+headerH*0.36);
     if(nom){ c.font=(21*S)+'px Arial'; c.fillStyle='#b00000'; c.fillText('Incendi de '+nom, tx, pad+headerH*0.72); }
     if(filtreTxt){ c.fillStyle='#b00000'; c.font='bold '+(15*S)+'px Arial'; c.textAlign='left'; c.textBaseline='middle';
@@ -1657,6 +1693,7 @@ async function generarImatge(){
           c.globalAlpha=oa;
         }
       }
+      if(p.canvasData) c.drawImage(p.canvasData,0,0,p.canvasData.width,p.canvasData.height, x,mapY,mapW,mapH);
       const VCexp = ventClickOn ? ventCtx() : null;
       if(VCexp && p.mapObj){                          // fletxes de vent a la captura
         const el=p.el, sxp=mapW/el.clientWidth, syp=mapH/el.clientHeight, VD=VCexp.W, B=VD.bbox;
@@ -1719,6 +1756,7 @@ async function generarImatge(){
       const zOn=$('zonaOn')&&$('zonaOn').checked&&zonaData;
       if(ventClickOn||zOn)                            // escala del vent damunt del mapa
         dibuixaLlegendaVentBox(c, x+mapW-178*S, mapY+10*S, S, (zOn&&!ventClickOn)?'Vent WindNinja (km/h)':'Velocitat vent (km/h)');
+      if(radarActiu) dibuixaLlegendaRadar(c, x+10*S, mapY+10*S, S);
       dibuixaLlegendaExport(c, p.spec, x, mapY+mapH+9*S, mapW, S);
       x+=mapW+gap;
     }
