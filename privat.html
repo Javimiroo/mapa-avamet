@@ -705,7 +705,7 @@ const VARS = {
   tpr:   {label:'Punt de rosada',   unit:'°C',   dir:'>', scale:'temp', presets:[10,15,20],       dec:1},
   barbes:{label:'Barbes: velocitat i direcció vent', unit:'', special:'barbs', presets:[],        dec:0},
   vv:    {label:'Vent mitjà',       unit:'km/h', dir:'>', scale:'wind', presets:[20,30,40],       dec:1},
-  vmax:  {label:'Ratxa màxima',     unit:'km/h', dir:'>', scale:'wind', presets:[50,70,90],       dec:1},
+  vmax:  {label:'Ratxa màx. (dia)', unit:'km/h', dir:'>', scale:'wind', presets:[50,70,90],       dec:1},
   dv:    {label:'Direcció vent',    unit:'°',    dir:'>', scale:'dir',  presets:[],               dec:0},
   prec:  {label:'Precipitació (última 1/2 h)', unit:'mm', dir:'>', scale:'prec', presets:[0.1,1,5,10], dec:1},
   pacum: {label:'Precipitació acumulada', unit:'mm', dir:'>', scale:'precacum', presets:[1,5,10,25,50], dec:1, periode:true},
@@ -1037,7 +1037,7 @@ function tooltipHTML(st){
     return `<div class="lp-tt"><b>${st.nom}</b> <span class="muted">${st.font}</span><br><span class="big">${fmt(vk,getVal(st,vk))} ${VARS[vk].unit}</span></div>`;
   }
   const rows=[['Temperatura',fmt('ta',a.ta)+' °C'],['Màx / Mín (24 h)',fmt('ta',a.tamax_dia)+' / '+fmt('ta',a.tamin_dia)+' °C'],
-    ['Humitat',fmt('hr',a.hr)+' %'],['Vent mitjà',fmt('vv',a.vv)+' km/h'],['Ratxa màx.',fmt('vmax',a.vmax)+' km/h'],
+    ['Humitat',fmt('hr',a.hr)+' %'],['Vent mitjà',fmt('vv',a.vv)+' km/h'],['Ratxa màx. (dia)',fmt('vmax',a.vmax)+' km/h'],
     ['Direcció',fmt('dv',a.dv)+'°'],['Precipitació',fmt('prec',a.prec)+' mm'],['Pressió',fmt('pres',a.pres)+' hPa'],
     ['Punt rosada',fmt('tpr',a.tpr)+' °C']];
   const hora=horaLoc(a.fint);
@@ -1600,7 +1600,7 @@ function dibuixaLlegendaExport(c, spec, x, y, w, S){
   for(let i=0;i<=6;i++) c.fillText(Math.round(min+span*i/6), bx+bw*i/6, by+bh+3*S);
   c.fillStyle='#555'; c.font=(11*S)+'px Arial';
   const unit=isBarb?'km/h':VARS[vk].unit;
-  const extra=isBarb?(unit+' · número al cercle = ratxa última hora'):(spec.k==='streak'?(unit+' · mida = hores consecutives'):(spec.k==='count'?(unit+' · número = hores (de les últimes '+spec.hores+' h)'):unit));
+  const extra=isBarb?(unit+' · número al cercle = ratxa màxima del dia'):(spec.k==='streak'?(unit+' · mida = hores consecutives'):(spec.k==='count'?(unit+' · número = hores (de les últimes '+spec.hores+' h)'):unit));
   c.fillText(extra, x+w/2, by+bh+18*S);
   c.restore();
 }
