@@ -237,7 +237,7 @@
       <div class="muted" style="font-size:10px;margin-top:5px">Topònims d'OpenStreetMap (Nominatim) · clica un resultat per centrar-hi el mapa</div>
     </div>
 
-    <div class="card coll collapsed" style="display:none"><!-- FASE 2: cal Worker propi -->
+    <div class="card coll collapsed">
       <h2>🔥 Incendi</h2>
       <div class="cardbody">
         <button class="btn" id="focNou" style="width:100%;margin-bottom:9px">➕ Nou incendi (buida el formulari)</button>
@@ -263,7 +263,7 @@
       </div>
     </div>
 
-    <div class="card" style="display:none"><!-- FASE 2: cal vent_grid.npz de la CV -->
+    <div class="card">
       <h2>🌬️ Camp de vents</h2>
       <div class="cardbody">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
@@ -342,7 +342,7 @@
         <option value="7d">Acumulat 7 dies</option>
       </select>
       <label id="pacumSurfWrap" class="switch" style="display:none;margin-top:6px;font-size:12px">
-        <input type="checkbox" id="pacumSurf" checked> Superfície interpolada (IDW)</label>
+        <input type="checkbox" id="pacumSurf"> Superfície interpolada (IDW)</label>
       <div class="legend" id="legend"></div>
     </div>
 
@@ -707,7 +707,7 @@ const VARS = {
   vv:    {label:'Vent mitjà',       unit:'km/h', dir:'>', scale:'wind', presets:[20,30,40],       dec:1},
   vmax:  {label:'Ratxa màxima',     unit:'km/h', dir:'>', scale:'wind', presets:[50,70,90],       dec:1},
   dv:    {label:'Direcció vent',    unit:'°',    dir:'>', scale:'dir',  presets:[],               dec:0},
-  prec:  {label:'Precipitació',     unit:'mm',   dir:'>', scale:'prec', presets:[0.1,1,5,10],     dec:1},
+  prec:  {label:'Precipitació (última 1/2 h)', unit:'mm', dir:'>', scale:'prec', presets:[0.1,1,5,10], dec:1},
   pacum: {label:'Precipitació acumulada', unit:'mm', dir:'>', scale:'precacum', presets:[1,5,10,25,50], dec:1, periode:true},
   pres:  {label:'Pressió (mar)',    unit:'hPa',  dir:'>', scale:'pres', presets:[],               dec:1},
   tamax: {label:'Temp. màx (24 h)', unit:'°C',   dir:'>', scale:'temp', presets:[25,30,35,40],    dec:1},
@@ -974,7 +974,7 @@ function renderLegend(){
   else {
     sc=SCALES[VARS[vk].scale]; unit=VARS[vk].unit;
     if(sc==='wheel'){L_.innerHTML='<div class="muted">Color = direcció (0–360°, roda de matís)</div>';return;}
-    if(vk==='pacum'){ nota=' · acumulat '+(PACUM_LAB[pacumPeriode]||pacumPeriode)+(pacumFont==='qpe'?' · radar+estacions':' · estacions IDW');
+    if(vk==='pacum'){ nota=' · acumulat '+(PACUM_LAB[pacumPeriode]||pacumPeriode)+' · per estació';
       if(pacumFont==='qpe' && qpeInfo && qpeInfo.obs) nota+=' · radar de les '+new Date(qpeInfo.obs).toLocaleString('ca-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
   }
   const min=sc[0][0], max=sc[sc.length-1][0], span=max-min||1;
@@ -1448,7 +1448,7 @@ function aplicaCombo(key){
 
 selVar.onchange=()=>{surtModes();
   const esP=(selVar.value==='pacum');
-  $('pacumPer').style.display=esP?'':'none'; $('pacumSurfWrap').style.display=esP?'':'none'; $('pacumFont').style.display=esP?'':'none';
+  $('pacumPer').style.display=esP?'':'none';   // superfície IDW i selector de font fora (per estació, sense interpolar)
   precGrid=null; actualitzaPrecLayer();
   if(esP && pacumFont==='qpe') carregaQPE(pacumPeriode);
   renderPresets();renderLegend();highlightChip(null);render();};
@@ -2729,7 +2729,7 @@ setInterval(autoRefresc, AUTO_REFRESC_MS);
 
 // ---------------- actualització manual (via Worker de Cloudflare) ----------------
 // >>> Posa ací la URL del teu Worker (acaba en .workers.dev):
-const WORKER_URL='';   // FASE 2: desplegar un Worker propi per al repo mapa-avamet
+const WORKER_URL='https://actualitza-avamet.javiermiroo.workers.dev';   // Worker propi del repo mapa-avamet
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function appPass(){ try{return localStorage.getItem('app_pass')||'';}catch(e){return '';} }
 let rateTimer=null;

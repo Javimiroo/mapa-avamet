@@ -53,11 +53,34 @@ prova de foc**: si AVAMET bloquejara les IPs de datacenter, el log diria
 "AVAMET ha fallat". En eixe cas ho resoldrem (canvi d'User-Agent, mirall, o
 baixada des d'un altre punt).
 
-## Fase 2 (pendent)
+## Camp de vents (activar una vegada)
 
-- **Camp de vents interpolat** (`vent_privat.enc`): cal generar `vent_grid.npz`
-  amb el relleu de la CV (la targeta està amagada al visor).
-- **Tauler d'incendis + WindNinja**: cal desplegar un Worker de Cloudflare
-  propi per a este repo i tornar a posar `WORKER_URL` a `privat.html`.
-- **QPE de radar**: cal replicar la branca `qpe` (l'opció està llevada del
-  desplegable).
+1. Mou `gen_grid.yml` a `.github\workflows\gen_grid.yml` i puja-ho.
+2. Actions → **Genera la graella de terreny** → Run workflow (una sola vegada).
+   Baixa el relleu de la CV i commiteja `vent_grid.npz` a main (~1 min).
+3. A partir del run següent del workflow principal, `vent_privat.enc` es genera
+   sol (càlcul **incremental**: només l'hora nova, els fotogrames vells es
+   reutilitzen) i la targeta «🌬️ Camp de vents» del visor cobra vida. També es
+   va omplint `arxiu-vent/` (1 dia tancat per run).
+
+## Worker (botó Actualitzar + incendis compartits)
+
+Cal per al botó «⬇ Actualitzar» i per a la targeta «🔥 Incendi» (els incendis
+es guarden en un KV de Cloudflare i els veu tot l'equip). Instruccions pas a
+pas a la capçalera de `worker_avamet.js` (nom del worker: **actualitza-avamet**,
+que és la URL que ja porta `privat.html`).
+
+## Pluja
+
+- Variable **Precipitació (última 1/2 h)**: el que ha caigut entre execucions
+  (derivat del total diari d'AVAMET, tolerant al reset de mitjanit).
+- Variable **Precipitació acumulada** (1h/3h/6h/24h/dia/7d): per estació, SENSE
+  superfície interpolada. Els períodes llargs es van completant a mesura que
+  l'històric acumula dies.
+
+## Fase 3 (pendent)
+
+- **Previsió WindNinja per zona** (tauler d'incendi): cal portar
+  `windninja_prep.py`/`windninja_zona.yml` a AVAMET. Els botons de previsió del
+  tauler donen error mentrestant.
+- **QPE de radar**: descartada de moment per decisió de Javi.

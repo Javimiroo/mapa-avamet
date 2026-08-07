@@ -1,0 +1,40 @@
+name: Genera la graella de terreny (una vegada)
+
+# Executar A MÀ una sola vegada: Actions -> "Genera la graella de terreny" ->
+# Run workflow. Baixa el relleu de la CV (tiles terrarium), construeix
+# vent_grid.npz i el commiteja a main. Quan existisca, el workflow principal
+# començarà a generar el camp de vents (vent_privat.enc) tot sol.
+#
+# NOTA: este fitxer va a .github/workflows/gen_grid.yml (moure'l a mà, com
+# l'altre: la carpeta està protegida per al pont remot).
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  grid:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Dependències
+        run: pip install numpy pillow
+
+      - name: Genera vent_grid.npz
+        run: python gen_grid_cv.py
+
+      - name: Commiteja a main
+        run: |
+          git config user.name "avamet-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vent_grid.npz
+          git commit -m "vent_grid.npz (graella de terreny CV)" || { echo "res a comitar"; exit 0; }
+          git pull --rebase origin main
+          git push origin main

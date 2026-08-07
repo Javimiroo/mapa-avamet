@@ -1,0 +1,91 @@
+name: Actualitza mapa CV (AVAMET)
+
+on:
+  workflow_dispatch: {}   # manual (des de la pestanya Actions o un disparador extern)
+  schedule:
+    # Cada 30 min. El cron de GitHub és "best-effort" (pot saltar-se hores);
+    # si cal fiabilitat total, afegir un disparador extern a cron-job.org que
+    # faça POST a .../actions/workflows/avamet.yml/dispatches (com als altres repos).
+    # AVAMET refresca la MXO cada ~5 min, així que el minut exacte no és crític;
+    # :07 i :37 esquiven la congestió de GitHub a l'hora en punt.
+    - cron: "7,37 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: avamet
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Instal·la dependències
+        run: pip install -r requirements.txt
+
+      # Recupera l'arxiu acumulat de la branca 'arxiu' (font de veritat) perquè
+      # arxiva() no reescriga dies ja congelats i la caché d'estacions no es perda.
+      - name: Recupera l'arxiu (branca 'arxiu')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git clone --branch arxiu --depth 1 \
+               "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" _arxiu 2>/dev/null; then
+            rm -rf arxiu arxiu-vent
+            [ -d _arxiu/arxiu ] && mv _arxiu/arxiu arxiu
+            [ -d _arxiu/arxiu-vent ] && mv _arxiu/arxiu-vent arxiu-vent
+            [ -f _arxiu/avamet_estacions.json ] && cp _arxiu/avamet_estacions.json avamet_estacions.json
+            rm -rf _arxiu
+            echo "arxiu recuperat de la branca 'arxiu' ($(ls arxiu 2>/dev/null | wc -l) fitxers)"
+          else
+            echo "encara no hi ha branca 'arxiu': uso la caché de main com a llavor"
+          fi
+
+      - name: Baixa AVAMET i xifra
+        env:
+          MAPA_PASS: ${{ secrets.MAPA_PASS }}
+        run: python fetch_avamet.py
+
+      # 1) ARXIU: branca pròpia 'arxiu' amb força-push (no toca main -> no dispara Pages).
+      - name: Publica l'arxiu (branca 'arxiu')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PUB=$(mktemp -d)
+          [ -d arxiu ] && cp -r arxiu "$PUB/"
+          [ -d arxiu-vent ] && cp -r arxiu-vent "$PUB/"
+          [ -f avamet_estacions.json ] && cp avamet_estacions.json "$PUB/"
+          if [ -z "$(ls -A "$PUB")" ]; then echo "res a arxivar"; exit 0; fi
+          cd "$PUB"
+          git init -q -b arxiu
+          git add -A
+          git -c user.name="avamet-bot" -c user.email="github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "arxiu $(date -u +%FT%TZ)"
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" arxiu
+          echo "publicat a la branca 'arxiu' ($(ls "$PUB/arxiu" 2>/dev/null | wc -l) fitxers)"
+
+      # 2) DADES VIVES: branca 'dades' SENSE historial (força-push d'un únic commit).
+      #    El repo no creix encara que s'actualitze cada 30 min, i no dispara Pages.
+      - name: Publica les dades vives (branca 'dades')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PUB=$(mktemp -d)
+          [ -f dades_privat.enc ] && cp dades_privat.enc "$PUB/" || { echo "avis: dades_privat.enc no existeix"; exit 0; }
+          [ -f vent_privat.enc ] && cp vent_privat.enc "$PUB/" || echo "avis: vent_privat.enc encara no es genera"
+          cd "$PUB"
+          git init -q -b dades
+          git add -A
+          git -c user.name="avamet-bot" -c user.email="github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "dades $(date -u +%FT%TZ)"
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" dades
+          echo "publicat a la branca 'dades'"

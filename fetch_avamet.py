@@ -60,6 +60,7 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) graf-avamet/1.0"
 # La publicació actual (branca 'dades'): per reutilitzar-la si la font falla i per
 # NO publicar mai una foto més vella que la que ja hi ha (blindatge anti-regressió).
 DADES_PREV_URL = "https://raw.githubusercontent.com/Javimiroo/mapa-avamet/dades/dades_privat.enc"
+VENT_PREV_URL = "https://raw.githubusercontent.com/Javimiroo/mapa-avamet/dades/vent_privat.enc"
 
 # 16 sectors -> graus (convenció meteorològica: d'on ve el vent)
 DIRS = {"N": 0, "NNE": 22.5, "NE": 45, "ENE": 67.5, "E": 90, "ESE": 112.5,
@@ -492,11 +493,40 @@ def main():
         json.dump(blob, f)
     print("OK -> %s  (%d estacions AVAMET)" % (OUT_FILE, len(estacions)))
 
+    # --- camp de vents diagnòstic (només si ja existeix la graella de terreny) ---
+    if os.path.exists("vent_grid.npz"):
+        _t = time.perf_counter()
+        try:
+            from camp_vents import escriu_vent
+            prev_vent = None
+            try:                      # payload publicat (per al càlcul INCREMENTAL)
+                req = urllib.request.Request(VENT_PREV_URL + "?_=" + str(int(time.time())),
+                                             headers={"User-Agent": UA})
+                prev_vent = desxifrar(json.loads(urllib.request.urlopen(req, timeout=30, context=_SSL).read()),
+                                      PASSWORD)
+            except Exception as ex:  # noqa
+                print("  avis: vent previ no llegit (%s)" % str(ex)[:70])
+            nv = escriu_vent(estacions, PASSWORD, prev=prev_vent)
+            print("OK -> vent_privat.enc  (camp de vents, %d fotogrames)" % nv)
+        except Exception as ex:       # mai ha de bloquejar l'actualització operativa
+            print("  AVIS: camp de vents no generat (%s)" % str(ex)[:120])
+        print("  ⏱ camp de vent: %.1f s" % (time.perf_counter() - _t))
+    else:
+        print("  camp de vents: vent_grid.npz encara no existeix (executa el workflow 'Genera la graella')")
+
     print("Arxivant històric per dies...")
     try:
         arxiva(estacions)
     except Exception as ex:
         print("  avis: arxiu no completat (%s)" % ex)
+
+    # --- arxiu HORARI del camp de vents dels dies ja tancats ---
+    if os.path.exists("vent_grid.npz"):
+        try:
+            from arxiu_vent import backfill
+            backfill(PASSWORD, max_dies=1)
+        except Exception as ex:
+            print("  avis: arxiu de vent no completat (%s)" % str(ex)[:100])
 
 
 if __name__ == "__main__":
