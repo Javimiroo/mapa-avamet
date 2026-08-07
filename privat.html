@@ -523,7 +523,7 @@
     <button class="tb-btn" id="tbPrev" title="Hora anterior">◀</button>
     <input type="range" id="tbRange" min="0" max="100" value="100" step="1">
     <button class="tb-btn" id="tbNext" title="Hora següent">▶</button>
-    <span id="tbLabel">Ara (en directe)</span>
+    <span id="tbLabel">🔴 En directe</span>
     <button class="tb-btn" id="tbNow" title="Tornar a l'actual">⏱ Ara</button>
   </div>
   <div id="windleg"></div>
@@ -1286,19 +1286,25 @@ function calcDomini(){
   DATA.estacions.forEach(st=>{ const h=st.historic; if(h&&h.length){ const t=toDate(h[0].t); if(t&&t.getTime()<tMin) tMin=t.getTime(); } });
   if(tMin>=tMax) tMin=tMax-24*3600000;
   const lim=tMax-6*24*3600000; if(tMin<lim) tMin=lim;
-  tDomain={min:tMin,max:tMax,steps:Math.max(1,Math.round((tMax-tMin)/3600000))};
+  const TB_STEP=1800000;                       // pas de 30 min (cadència de les dades)
+  tDomain={min:tMin,max:tMax,step:TB_STEP,steps:Math.max(1,Math.round((tMax-tMin)/TB_STEP))};
   const r=$('tbRange'); if(r){ r.min=0; r.max=tDomain.steps;
-    r.value=(timeT==null)?tDomain.steps:Math.max(0,Math.min(tDomain.steps,Math.round((timeT-tMin)/3600000))); }
+    r.value=(timeT==null)?tDomain.steps:Math.max(0,Math.min(tDomain.steps,Math.round((timeT-tMin)/TB_STEP))); }
   const tb=$('timebar'); if(tb) tb.style.display='flex';
 }
 function fmtTemps(T){ return new Date(T).toLocaleString('ca-ES',{weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+function ultimaObsMs(){                         // última observació AVAMET publicada
+  if(!DATA) return null; let mx=null;
+  DATA.estacions.forEach(e=>{ const d=toDate(e.actual&&e.actual.fint); if(d&&(!mx||d>mx)) mx=d; });
+  return mx?mx.getTime():null;
+}
 function setTimeT(T){
   timeT=T;
   const bar=$('timebar');
   const nb=$('tbNow'); if(nb){ nb.textContent=reviewMode?'⏱ Final':'⏱ Ara'; nb.title=reviewMode?'Últim registre del dia':'Tornar a l\'actual'; }
   if(T==null){
     if(reviewMode){ if(bar)bar.classList.add('tt'); const g=toDate(DATA&&DATA.generat); $('tbLabel').textContent='🕘 '+(g?fmtTemps(g.getTime()):diaLabelLlarg(reviewMode)); }
-    else { if(bar)bar.classList.remove('tt'); $('tbLabel').textContent='Ara (en directe)'; }
+    else { if(bar)bar.classList.remove('tt'); const uo=ultimaObsMs(); $('tbLabel').textContent='🔴 '+(uo?fmtTemps(uo):'En directe'); }
   }
   else { if(bar)bar.classList.add('tt'); $('tbLabel').textContent='🕘 '+fmtTemps(T); }
   if(ventClickOn&&ventLayer) ventLayer.redraw();   // el camp de vent segueix l'hora
@@ -1310,7 +1316,7 @@ function tbStep(d){
   let i=parseInt($('tbRange').value,10)+d;
   i=Math.max(0,Math.min(tDomain.steps,i));
   $('tbRange').value=i;
-  setTimeT(i>=tDomain.steps ? null : tDomain.min+i*3600000);
+  setTimeT(i>=tDomain.steps ? null : tDomain.min+i*(tDomain.step||1800000));
 }
 function render(){
   aplicaSnapshots();
@@ -1513,7 +1519,7 @@ $('cntApply').onclick=()=>{
 $('cntOff').onclick=()=>{ countMode=null; renderLegend(); render(); };
 
 // màquina del temps
-$('tbRange').addEventListener('input',()=>{ if(!tDomain)return; const i=parseInt($('tbRange').value,10); setTimeT(i>=tDomain.steps?null:tDomain.min+i*3600000); });
+$('tbRange').addEventListener('input',()=>{ if(!tDomain)return; const i=parseInt($('tbRange').value,10); setTimeT(i>=tDomain.steps?null:tDomain.min+i*(tDomain.step||1800000)); });
 $('tbPrev').onclick=()=>tbStep(-1);
 $('tbNext').onclick=()=>tbStep(1);
 $('tbNow').onclick=()=>{ if(tDomain)$('tbRange').value=tDomain.steps; setTimeT(null); };
@@ -1867,6 +1873,7 @@ function setUpdated(){
   $('fontline').textContent=DATA.font||'Observació en temps real';
   const ia=$('infoAemet'), im=$('infoMeteocat'), icv=$('infoAemetCV'), ice=$('infoAemetCentre');
   if(ia) ia.textContent=infoXarxa('AVAMET');
+  if(timeT==null && !reviewMode){ const uo=ultimaObsMs(); if(uo) $('tbLabel').textContent='🔴 '+fmtTemps(uo); }
   if(im) im.textContent=infoXarxa('Meteocat');
   if(icv) icv.textContent=infoXarxa('AEMET CV');
   if(ice) ice.textContent=infoXarxa('AEMET Centre');

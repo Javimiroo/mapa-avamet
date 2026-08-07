@@ -249,6 +249,70 @@ def carrega_estacions_previ():
     return {}
 
 
+# ============================ pluja oficial del dia tancat ============================
+RESUM_URL = "https://www.avamet.org/mx-meteoxarxa.php?data="
+
+
+def pluja_oficial_dia(dia_iso):
+    """{id: mm} del resum diari oficial d'AVAMET per a un dia tancat.
+    La cel·la de pluja s'identifica per la classe 'colorP' (robust a canvis d'ordre)."""
+    html = _get_text(RESUM_URL + dia_iso)
+    html = re.sub(r"<!--.*?-->", "", html, flags=re.S)
+    out = {}
+    for tr in re.findall(r"<tr[^>]*>.*?</tr>", html, flags=re.S):
+        mid = RE_ID.search(tr)
+        if not mid or "rEsta" not in tr:
+            continue
+        cels = RE_TD.findall(tr)
+        if len(cels) < 6:
+            continue
+        prec = None
+        for cel_html, cel_complet in ((c, m) for m, c in
+                                      [(m.group(0), m.group(1)) for m in re.finditer(r'<td[^>]*class="[^"]*colorP[^"]*"[^>]*>(.*?)</td>', tr, re.S)]):
+            prec = _num(_cel_text(cel_complet if isinstance(cel_complet, str) else cel_html))
+            break
+        if prec is None and len(cels) >= 6:      # reserva: posició (6a cel·la)
+            prec = _num(_cel_text(cels[5]))
+        if prec is not None and prec >= 0:
+            out[mid.group(1)] = prec
+    return out
+
+
+def aplica_pluja_oficial(meta, estacions):
+    """Si el dia d'AHIR (local) encara no té total oficial, el baixa i el fixa al
+    ptot de cada estació. Marca el progrés dins de la caché de metadades
+    (clau '_pluja', no col·lideix amb cap id d'estació)."""
+    ahir = (datetime.now(timezone.utc).astimezone(TZ_LOCAL).date() - timedelta(days=1)).isoformat()
+    marca = (meta.get("_pluja") or {}).get("oficial_fins")
+    if marca and marca >= ahir:
+        return False
+    try:
+        oficials = pluja_oficial_dia(ahir)
+    except Exception as ex:  # noqa
+        print("  avis: resum diari oficial no baixat (%s); es reintentarà" % str(ex)[:80])
+        return False
+    if len(oficials) < 100:
+        print("  avis: resum diari oficial amb només %d estacions; es reintentarà" % len(oficials))
+        return False
+    n = 0
+    for e in estacions:
+        ide = str(e.get("idema", ""))
+        if not ide.startswith("AV_"):
+            continue
+        mm = oficials.get(ide[3:])
+        if mm is None:
+            continue
+        pt = e.setdefault("ptot", {})
+        if pt.get(ahir) != mm:
+            n += 1
+        pt[ahir] = mm
+    meta["_pluja"] = {"oficial_fins": ahir}
+    with open(EST_FILE, "w", encoding="utf-8") as f:
+        json.dump(meta, f, ensure_ascii=False)
+    print("  pluja oficial de %s aplicada (%d estacions, %d ajustades)" % (ahir, len(oficials), n))
+    return True
+
+
 # ============================ construcció de les estacions ============================
 def estacions_avamet(meta, prev_full):
     html = _get_text(MXO_URL)
@@ -289,8 +353,19 @@ def estacions_avamet(meta, prev_full):
         row = {
             "t": fint_iso, "ta": f["ta"], "tamax": None, "tamin": None,
             "hr": f["hr"], "vv": f["vv"], "vmax": f["vmax"], "dv": f["dv"],
-            "prec": prec_int, "pres": None, "tpr": f["tpr"],
+            "prec": prec_int, "pdia": f["prec_dia"], "pres": None, "tpr": f["tpr"],
         }
+        # registre de TOTALS DIARIS per estació (dia local -> mm). Es porta d'una
+        # execució a l'altra i, quan el dia tanca, se substitueix pel valor OFICIAL
+        # del resum diari d'AVAMET. Amb això el 7d i el 24h quadren sempre.
+        ptot = dict(prev.get("ptot") or {})
+        if f["prec_dia"] is not None:
+            dloc = _dia_local(fint_iso)
+            if dloc:
+                if f["prec_dia"] >= ptot.get(dloc, -1):
+                    ptot[dloc] = f["prec_dia"]
+        for k in sorted(ptot)[:-9]:
+            del ptot[k]
         out.append({
             "idema": "AV_" + f["id"], "nom": f["nom"] or m.get("nom") or f["id"],
             "provincia": f["comarca"] or m.get("comarca") or "",
@@ -304,6 +379,7 @@ def estacions_avamet(meta, prev_full):
                 "pres": None, "tpr": f["tpr"],
             },
             "historic": [row],
+            "ptot": ptot,
         })
     return out
 
@@ -342,26 +418,62 @@ def acumula(estacions, previ):
 
 
 def acumulats_precipitacio(estacions):
-    """pacum 1h/3h/6h/24h/dia/7d per estació, a partir dels intervals acumulats a
-    l'històric ('dia' ve directament de la pàgina). 24h/7d milloren a mesura que
-    l'arxiu viu acumula dies (màxim DIES_HISTORIC dies de finestra)."""
+    """pacum 1h/3h/6h/24h/dia/7d per estació. EXACTE: es calcula sobre el TOTAL
+    DIARI acumulatiu (pdia) de cada lectura, no sumant intervals — així un run
+    perdut no perd pluja (el següent pdia ja la porta). Finestra dins d'un dia:
+    últim pdia del dia - pdia a l'inici de la finestra; dies sencers: ptot
+    (total oficial d'AVAMET quan el dia tanca). 'dia' = el total en directe."""
+    ara_ref = datetime.now(timezone.utc)
     n = 0
     for e in estacions:
-        rows = e.get("historic", [])
-        parells = [(_parse_t(r.get("t")), r.get("prec")) for r in rows]
-        parells = [(t, p) for (t, p) in parells if t is not None and p is not None and p >= 0]
         act = e.get("actual") or {}
-        tref = _parse_t(act.get("fint")) or datetime.now(timezone.utc)
+        tref = _parse_t(act.get("fint")) or ara_ref
+        # sèrie (t, pdia) vàlida, ordenada, agrupada per dia local
+        serie = []
+        for r in e.get("historic", []):
+            t = _parse_t(r.get("t")); p = r.get("pdia")
+            if t is not None and p is not None and p >= 0:
+                serie.append((t, p))
+        serie.sort(key=lambda x: x[0])
+        per_dia = {}
+        for t, p in serie:
+            per_dia.setdefault(t.astimezone(TZ_LOCAL).date().isoformat(), []).append((t, p))
+        ptot = e.get("ptot") or {}
 
-        def suma(hores):
-            des = tref - timedelta(hours=hores)
-            return round(sum(p for (t, p) in parells if t > des), 1)
+        def caigut(des):
+            """mm entre 'des' i tref, sumant per dies locals."""
+            total = 0.0
+            d0 = des.astimezone(TZ_LOCAL).date()
+            d1 = tref.astimezone(TZ_LOCAL).date()
+            d = d0
+            while d <= d1:
+                dk = d.isoformat()
+                rows = [x for x in per_dia.get(dk, []) if x[0] <= tref]
+                if rows:
+                    fi = rows[-1][1]
+                    abans = [p for (t, p) in rows if t <= des]
+                    base = abans[-1] if abans else 0.0
+                    total += max(0.0, fi - base)
+                elif dk in ptot and d > d0:
+                    total += max(0.0, ptot[dk])      # dia sencer dins la finestra, sense lectures vives
+                d += timedelta(days=1)
+            return round(total, 1)
 
-        pac = {"1h": suma(1), "3h": suma(3), "6h": suma(6), "24h": suma(24), "7d": suma(24 * 7)}
-        pac["dia"] = act.get("prec_dia") if act.get("prec_dia") is not None else suma(24)
+        pac = {k: caigut(tref - timedelta(hours=h))
+               for k, h in (("1h", 1), ("3h", 3), ("6h", 6), ("24h", 24))}
+        pac["dia"] = act.get("prec_dia") if act.get("prec_dia") is not None else caigut(
+            tref.astimezone(TZ_LOCAL).replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc))
+        # 7d = dies tancats (oficials o seguits en directe) + el dia d'avui
+        avui_k = tref.astimezone(TZ_LOCAL).date().isoformat()
+        s7 = pac["dia"] or 0.0
+        for k in range(1, 8):
+            dk = (tref.astimezone(TZ_LOCAL).date() - timedelta(days=k)).isoformat()
+            if dk in ptot:
+                s7 += max(0.0, ptot[dk])
+        pac["7d"] = round(s7, 1)
         act["pacum"] = pac
         n += 1
-    print("  precipitació acumulada: %d estacions" % n)
+    print("  precipitació acumulada: %d estacions (mètode pdia+oficial)" % n)
 
 
 # ============================ arxiu històric (per dia, congelat) ============================
@@ -475,6 +587,10 @@ def main():
             print("  conservades %d estacions absents de la taula (desfasades)" % recuperades)
 
     estacions.sort(key=lambda e: e["nom"])
+    try:
+        aplica_pluja_oficial(meta, estacions)
+    except Exception as ex:
+        print("  avis: pluja oficial no aplicada (%s)" % str(ex)[:90])
     print("Acumulant històric (fins a %d dies)..." % DIES_HISTORIC)
     acumula(estacions, previ)
     acumulats_precipitacio(estacions)
