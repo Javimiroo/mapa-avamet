@@ -2073,8 +2073,17 @@ async function focsAPI(accio,extra,dem){
 }
 async function focsSync(nomesSiPass){
   if(nomesSiPass && !passEquip(false)){ focsRender(); return; }
-  const a=await focsAPI('llista',null,!nomesSiPass);
-  if(a){ focsCache=a; focsLocalDesa(a); }
+  let a=await focsAPI('llista',null,!nomesSiPass);
+  if(a){
+    // RE-PUJADA automàtica dels incendis que van quedar "només ací" perquè el
+    // Worker va fallar en guardar-los: ara que hi ha connexió, es pugen sols.
+    const pendents=focsCache.filter(f=>String(f.id).startsWith('local') && !a.some(x=>String(x.id)===String(f.id)));
+    for(const f of pendents){
+      const r=await focsAPI('guarda',{foc:f},false);
+      if(r) a=r;
+    }
+    focsCache=a; focsLocalDesa(a);
+  }
   focsRender();
 }
 function focPerimsDe(f){    // compat: nou (perims) o antic (perim)
@@ -2090,7 +2099,8 @@ function focsRender(){
     const d=new Date(f.ts||Date.now());
     const q=d.toLocaleDateString('ca-ES',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});
     const nper=focPerimsDe(f).length, nrun=(f.runs||[]).length;
-    const extra=(nper?(' · '+nper+' perím.'):'')+(nrun?(' · '+nrun+' vent'):'')+(f.fi?' · 🏁':'');
+    const extra=(nper?(' · '+nper+' perím.'):'')+(nrun?(' · '+nrun+' vent'):'')+(f.fi?' · 🏁':'')
+      +(String(f.id).startsWith('local')?' · <b style="color:#f59e0b">⚠ només en este navegador</b>':'');
     const sel=(String(f.id)===String(focActualId))?';outline:2px solid var(--accent)':'';
     return '<div class="row" style="align-items:stretch;gap:5px;margin-top:5px">'
       +'<button class="btn small focA" data-id="'+f.id+'" title="'+(f.actiu?'Actiu al mapa · clica per desactivar':'Inactiu · clica per mostrar-lo al mapa')+'" style="flex:0 0 auto">'+(f.actiu?'🟢':'⚪')+'</button>'
@@ -2134,7 +2144,8 @@ async function focGuarda(){
     b.textContent='✓ Guardat'; }
   else { foc.id=focActualId||('local'+Date.now()); focActualId=foc.id; focActualPerims=perims;
          foc.ts=Date.now(); focsCache=[foc].concat(focsCache.filter(x=>x.id!==foc.id)).slice(0,20); focsLocalDesa(focsCache);
-         b.textContent='✓ Guardat (només ací)'; }
+         b.textContent='⚠ Només en este navegador';
+         alert('ATENCIÓ: no s\'ha pogut guardar l\'incendi al núvol de l\'equip (Worker no accessible o contrasenya no posada).\n\nDe moment queda NOMÉS en este navegador: la resta de l\'equip NO el veu. Quan tornes a tindre connexió, clica el botó ↻ de la targeta Incendi i es pujarà sol.'); }
   focsRender(); setTimeout(()=>{ b.disabled=false; actualitzaBotoGuarda(); },1800);
 }
 function focCarrega(id){
