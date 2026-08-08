@@ -2047,7 +2047,7 @@ $('perimFile').addEventListener('change',async e=>{
 
 // Es desen al Worker (KV) perquè els veja TOT l'equip. La còpia local només és
 // una reserva per si el Worker no respon (així mai et quedes sense veure'ls).
-const FOC_KEY='graf_focs';
+const FOC_KEY='graf_focs_cv';   // clau PRÒPIA: el localStorage es comparteix per domini amb el mapa de Catalunya
 function focsLocal(){ try{ return JSON.parse(localStorage.getItem(FOC_KEY)||'[]'); }catch(e){ return []; } }
 function focsLocalDesa(a){ try{ localStorage.setItem(FOC_KEY, JSON.stringify(a.slice(0,20))); }catch(e){} }
 let focsCache=focsLocal();
