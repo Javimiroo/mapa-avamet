@@ -228,6 +228,32 @@
     <h1>AVAMET · País Valencià</h1>
     <p class="sub" id="fontline">Observació en temps real</p>
 
+    <style>
+      #tabs{position:sticky;top:0;z-index:6;display:flex;gap:4px;flex-wrap:wrap;background:var(--bg);padding:6px 0 8px;margin:0 0 8px;border-bottom:1px solid var(--line)}
+      #tabs .tab{flex:1 1 auto;min-width:66px;padding:7px 6px;font:600 12px system-ui;color:var(--txt);background:var(--bg);border:1px solid var(--line);border-radius:8px;cursor:pointer;opacity:.6;transition:opacity .12s}
+      #tabs .tab:hover{opacity:.85}
+      #tabs .tab.actiu{opacity:1;border-color:var(--accent);box-shadow:inset 0 -2px 0 0 var(--accent)}
+      /* elements FLOTANTS sobre el mapa (fora del menú vertical) */
+      #floatTop{position:absolute;top:10px;left:356px;z-index:1200;display:flex;gap:8px;align-items:center;background:rgba(18,20,26,.85);backdrop-filter:blur(4px);padding:6px 8px;border:1px solid var(--line);border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.45);transition:left .25s ease}
+      #app.collapsed #floatTop{left:12px}   /* amb el menú amagat, la cerca va a l'extrem esquerre; torna en reobrir */
+      #floatTop #cercaWrap{position:relative;width:230px;margin:0}
+      #floatTop #cerca{width:100%}
+      #floatTop #exportar{width:auto!important;white-space:nowrap;margin:0!important;padding:7px 11px}
+      #floatFons{position:absolute;right:12px;bottom:40px;z-index:1200;display:flex;align-items:center;background:rgba(18,20,26,.85);backdrop-filter:blur(4px);padding:6px 9px;border:1px solid var(--line);border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.45)}
+      #floatFons #basemap{background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-size:12px}
+      .subhdr{font:700 11px system-ui;letter-spacing:.6px;color:var(--muted);margin:0 0 8px;padding-bottom:5px;border-bottom:1px solid var(--line)}
+      /* zoom +/- a la DRETA, damunt del selector de Fons, arrimat a la vora */
+      .leaflet-top.leaflet-left{top:auto!important;bottom:86px!important;left:auto!important;right:12px!important}
+      .leaflet-top.leaflet-left .leaflet-control-zoom{margin:0!important}
+      @media(max-width:720px){ #floatTop{left:10px;right:10px} #floatTop #cercaWrap{width:auto;flex:1} }
+    </style>
+    <div id="tabs">
+      <button class="tab actiu" data-t="temps">Temps real</button>
+      <button class="tab" data-t="analisi">Anàlisi</button>
+      <button class="tab" data-t="incendi">Incendi</button>
+      <button class="tab" data-t="arxiu">Arxiu</button>
+    </div>
+
     <div class="card">
       <h2>Cerca un poble</h2>
       <div id="cercaWrap">
@@ -238,9 +264,11 @@
     </div>
 
     <div class="card coll collapsed">
-      <h2>🔥 Incendi</h2>
+      <h2>Incendi</h2>
       <div class="cardbody">
-        <button class="btn" id="focNou" style="width:100%;margin-bottom:9px">➕ Nou incendi (buida el formulari)</button>
+        <details id="crearInc">
+        <summary class="subhdr" style="cursor:pointer;user-select:none">CREAR INCENDI</summary>
+        <button class="btn" id="focNou" style="width:100%;margin:8px 0 9px">➕ Nou incendi (buida el formulari)</button>
         <label>Nom / lloc</label>
         <input type="text" id="incident" placeholder="p. ex. Vandellòs" style="width:100%;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:7px 8px;font-size:13px">
         <label style="margin-top:8px">Hora d'inici de l'incendi</label>
@@ -258,6 +286,8 @@
           <button class="btn primary" id="focGuarda" style="flex:1">💾 Guardar este incendi</button>
           <button class="btn small" id="focSync" style="flex:0 0 auto" title="Refrescar la llista de l'equip">↻</button>
         </div>
+        </details>
+        <div class="subhdr" style="margin-top:14px">INCENDIS DESATS</div>
         <div id="focList" style="margin-top:8px"></div>
         <p class="muted" style="font-size:11px;margin:8px 0 0">Es guarden els <b>20 últims</b> (nom, flama, perímetres, corregudes de vent) i els veu <b>tot l'equip</b>. Clica un incendi per situar-lo; 📊 obri el seu tauler.</p>
       </div>
@@ -281,8 +311,8 @@
         <label class="switch"><input type="checkbox" id="radarOn"> Mostra la capa</label>
         <label style="display:block;margin-top:7px;font-size:12px">Producte
           <select id="radarProd" style="width:100%;margin-top:3px;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:13px">
-            <option value="echotop_composit">Echotop — alçada dels tops</option>
-            <option value="composit">Reflectivitat (compòsit)</option>
+            <option value="echotop_composit" selected>Echotop AEMET — alçada dels tops</option>
+            <option value="composit">Reflectivitat AEMET (compòsit)</option>
           </select>
         </label>
         <div id="radarBar" style="display:none;margin-top:9px">
@@ -302,7 +332,41 @@
           </div>
           <button class="btn small" id="estBtn" style="width:100%;margin-top:8px">📊 Estudi d'àrea (alçada màx)</button>
         </div>
-        <p class="muted" style="font-size:11px;margin:8px 0 0">La capa <b>segueix la màquina del temps</b>. La barra <b>Dia</b> escombra <b>tot el dia</b> d'echotop/radar de colp (arrossega-la); els botons <b>◀ ▶</b> i <b>Animar</b> van frame a frame. En eixos modes s'<b>amaguen les dades meteo</b> per veure'l net; <b>mou la barra del temps de baix per tornar</b>. Radar/echotop d'AEMET (tota la península).</p>
+        <p class="muted" style="font-size:11px;margin:8px 0 0">La capa <b>segueix la màquina del temps</b>. La barra <b>Dia</b> escombra <b>tot el dia</b> d'echotop/radar de colp (arrossega-la); els botons <b>◀ ▶</b> i <b>Animar</b> van frame a frame. En eixos modes s'<b>amaguen les dades meteo</b> per veure'l net; <b>mou la barra del temps de baix per tornar</b>. <b>Echotop Meteocat (SMC)</b>: Catalunya, s'actualitza cada ~6 min (recomanat). Echotop/reflectivitat <b>AEMET</b>: tota la península.</p>
+      </div>
+    </div>
+
+    <div class="card" style="display:none"><!-- CV: sense font de llamps (XDDE és Meteocat) -->
+      <h2>⚡ Llamps (XDDE Meteocat)</h2>
+      <div class="cardbody">
+        <label class="switch"><input type="checkbox" id="llampsOn"> Mostra la capa</label>
+        <div class="row" style="gap:6px;align-items:center;margin-top:6px">
+          <span class="muted" style="font-size:11px">Finestra</span>
+          <select id="llampsWin" style="flex:1;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-size:13px">
+            <option value="0.5">Última 30 min</option>
+            <option value="1">Última 1 h</option>
+            <option value="3" selected>Últimes 3 h</option>
+            <option value="6">Últimes 6 h</option>
+          </select>
+        </div>
+        <div class="row" style="gap:8px;align-items:center;margin-top:6px">
+          <label class="switch" style="font-size:12px"><input type="checkbox" id="llampsHora"> Colors per hora</label>
+          <button class="btn small" id="llampsPlay" style="margin-left:auto">▶ Passada</button>
+        </div>
+        <div id="llampsInfo" class="muted" style="font-size:11px;margin-top:6px">—</div>
+        <p class="muted" style="font-size:11px;margin:6px 0 0">🔴 núvol-terra (CG, els que encenen) · 🔵 núvol-núvol (IC). <b>Segueix la màquina del temps.</b> Font: XDDE Meteocat.</p>
+        <div style="margin-top:9px;padding-top:9px;border-top:1px solid var(--line)">
+          <button class="btn small" id="infBtn" style="width:100%">📄 Informes diaris</button>
+          <div id="infPanel" style="display:none;margin-top:7px">
+            <div class="row" style="gap:6px;align-items:center">
+              <span class="muted" style="font-size:11px">Dia</span>
+              <select id="infDia" style="flex:1;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-size:12px"></select>
+            </div>
+            <button class="btn small primary" id="infGen" style="width:100%;margin-top:7px">Generar informe (PDF)</button>
+            <div id="infInfo" class="muted" style="font-size:11px;margin-top:6px"></div>
+            <p class="muted" style="font-size:10px;margin:5px 0 0">Genera els 3 mapes del dia (llamps CG per hora · llamps sobre QPE · conats) + la llista de conats per zona amb pluja del dia/3d/7d. Imprimible o desa'l en PDF.</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -311,6 +375,15 @@
       <div class="cardbody">
         <div id="calArxiu"></div>
         <p class="muted" style="font-size:11px;margin:7px 0 0">Els dies en <b style="color:#16a34a">verd</b> tenen dades guardades. Clica'n un per revisar-lo amb la màquina del temps i el meteograma.</p>
+        <div id="arxiuVarWrap" style="display:none;margin-top:10px;padding-top:9px;border-top:1px solid var(--line)">
+          <label style="font-size:12px;display:block;margin-bottom:4px">Variable arxivada d'aquest dia</label>
+          <select id="arxiuVar" style="width:100%;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:13px"></select>
+          <select id="arxiuPer" style="display:none;width:100%;margin-top:5px;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:13px">
+            <option value="dia">24 h (del dia)</option>
+            <option value="3d">3 dies</option>
+            <option value="7d">7 dies</option>
+          </select>
+        </div>
       </div>
     </div>
 
@@ -331,7 +404,7 @@
       <h2>Variable al mapa</h2>
       <select id="var"></select>
       <select id="pacumFont" style="display:none;margin-top:6px">
-        <option value="idw">Estacions (interpolat IDW)</option>
+        <option value="idw" selected>Estacions (interpolat IDW)</option>
       </select>
       <select id="pacumPer" style="display:none;margin-top:6px">
         <option value="1h">Acumulat última 1 h</option>
@@ -343,6 +416,8 @@
       </select>
       <label id="pacumSurfWrap" class="switch" style="display:none;margin-top:6px;font-size:12px">
         <input type="checkbox" id="pacumSurf"> Superfície interpolada (IDW)</label>
+      <label id="amagaEstWrap" class="switch" style="display:none;margin-top:4px;font-size:12px">
+        <input type="checkbox" id="amagaEst"> Amagar estacions (només superfície)</label>
       <div class="legend" id="legend"></div>
     </div>
 
@@ -413,6 +488,28 @@
           <button class="btn small" id="cntOff">Desactivar</button>
         </div>
         <p class="muted" style="font-size:11px;margin:8px 0 0">El número del cercle = quantes hores (de les últimes N) compleixen el llindar, encara que no siguen seguides. Ix a l'exportació.</p>
+      </div>
+    </div>
+
+    <div class="card coll collapsed">
+      <h2>Dies sense recuperació</h2>
+      <div class="cardbody">
+        <p class="muted" style="font-size:11px;margin:0 0 8px">Per estació, avalua la humitat de <b>matinada (02–06 h)</b> de cada dia (últims <b>30 dies</b>): si la mitjana no supera el llindar, és un dia <b>sense recuperació</b>.</p>
+        <label style="font-size:12px;display:block">Mode
+          <select id="recTipus" style="width:100%;margin-top:3px;background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:7px;padding:6px 8px;font-size:13px">
+            <option value="ratxa">Ratxa (dies seguits · trenca amb 2 recuperant)</option>
+            <option value="total">Últims 30 dies (total sense recuperar)</option>
+          </select>
+        </label>
+        <div class="row" style="gap:6px;align-items:center;margin-top:8px">
+          <span class="muted" style="font-size:12px">Humitat mitjana &lt;</span>
+          <input type="number" id="recThr" value="30" step="any" style="width:64px">
+          <span class="muted" style="font-size:12px">%</span>
+        </div>
+        <button class="btn primary" id="recBtn" style="width:100%;margin-top:9px">Comptar dies sense recuperació</button>
+        <button class="btn" id="recOff" style="width:100%;margin-top:6px">Desactivar</button>
+        <div id="recInfo" class="muted" style="font-size:11px;margin-top:8px"></div>
+        <p class="muted" style="font-size:10px;margin:6px 0 0">🔴 més dies sense recuperar (destacats) · 🔵 pocs o cap. Un dia compta si té ≥3 hores de matinada amb dada. Requereix estar dins amb contrasenya.</p>
       </div>
     </div>
 
@@ -617,6 +714,18 @@
   </div>
 </div>
 
+<div id="conatsBadge" title="Possibles conats per llamp sec — clica per veure'ls"
+  style="display:none;position:fixed;top:70px;right:16px;z-index:1600;background:#c81010;color:#fff;font:600 13px system-ui;padding:8px 12px;border-radius:8px;box-shadow:0 3px 12px rgba(0,0,0,.5);cursor:pointer;border:1px solid #96001f">⚠ <span id="conatsN">0</span> possibles conats per llamp</div>
+
+<div id="conatsPanel" style="display:none;position:fixed;right:16px;bottom:16px;z-index:1600;width:330px;max-height:62vh;display:none;flex-direction:column;background:#0f172a;color:#e5e7eb;border:1px solid #96001f;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.55)">
+  <div class="row" style="justify-content:space-between;align-items:center;padding:9px 12px;background:#7f0f1a;border-radius:10px 10px 0 0">
+    <b style="font-size:13px">⚠ Possibles conats per llamp</b>
+    <button class="btn small" id="conatsClose">✕</button>
+  </div>
+  <div id="conatsList" style="padding:6px 10px;overflow:auto"></div>
+  <div class="muted" style="font-size:10px;padding:2px 10px 9px">Llamps <b>núvol-terra</b> (6 h) en zona seca (&lt; 2 mm/6 h, <b>radar QPE</b>), només a Catalunya, agrupats. Passa el ratolí per ressaltar-los al mapa; clica per al detall imprimible.</div>
+</div>
+
 <div id="estModal" style="display:none;position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.62);align-items:center;justify-content:center">
   <div style="background:#0f172a;color:#e5e7eb;border:1px solid #334155;border-radius:12px;padding:16px;max-width:min(780px,95vw);width:780px;box-shadow:0 12px 44px rgba(0,0,0,.55)">
     <div class="row" style="justify-content:space-between;align-items:center">
@@ -715,12 +824,32 @@ const VARS = {
 };
 const ORDER = ['ta','hr','tpr','barbes','vv','vmax','dv','prec','pacum','pres','tamax','tamin'];
 let pacumPeriode = '24h';
-let pacumFont = 'idw';                       // 'idw' (estacions) | 'qpe' (radar+estacions)
+let pacumMax = 200;                            // fins on arriba la LLEGENDA. Els colors són FIXOS (10, 50,
+                                               // 100, 200 sempre el mateix color); només es RETALLA l'extensió
+                                               // de la llegenda al màxim real, en números redons.
+function _ceilNicePacum(m){
+  if(m<=10) return 10;
+  if(m<=100) return Math.ceil(m/10)*10;        // arrodonir amunt a la desena (55 -> 60)
+  if(m<=200) return Math.ceil(m/25)*25;
+  return 200;                                  // la paleta acaba a 200
+}
+function actualitzaEscalaPacum(){
+  if(selVar.value!=='pacum') return;
+  let m=0;
+  if(DATA) DATA.estacions.forEach(st=>{ if(st.lat==null||!xarxaActiva(st)||amagaVella(st)) return;
+    const v=getVal(st,'pacum'); if(v!=null&&!isNaN(v)&&v>m) m=v; });
+  if(precGrid&&precGrid.val){ const a=precGrid.val; for(let i=0;i<a.length;i++){ if(!isNaN(a[i])&&a[i]>m) m=a[i]; } }
+  pacumMax=_ceilNicePacum(m);
+}
+let pacumFont = 'idw';                       // CV: sense QPE (no hi ha branca de radar); només estacions
 const qpeCache = {};                          // ràsters QPE ja desxifrats per període
 const qpeMetaCache = {};                       // {period: {obs, biaix}}
 let qpeInfo = null;                            // meta de la QPE mostrada ara (per a la llegenda/hora)
+let qpeSerie = null;                            // sèrie horària escombrable {bbox,nx,ny,dt,biaix,frames:[{ts,esc,mask,d,_mb,_dd,_val}]}
+let qpeDiesList = null;                          // índex de dies QPE arxivats (['AAAAMMDD',...])
+const qpeDiaCache = {};                          // graella QPE d'un dia arxivat (per clau AAAAMMDD)
 const QPE_URL = 'https://raw.githubusercontent.com/Javimiroo/mapa-avamet/qpe/';
-const PACUM_LAB = {'1h':'1 h','3h':'3 h','6h':'6 h','24h':'24 h','dia':'del dia (des de 00 h)','7d':'7 dies'};
+const PACUM_LAB = {'1h':'1 h','3h':'3 h','6h':'6 h','24h':'24 h','dia':'del dia (des de 00 h)','3d':'3 dies','7d':'7 dies','30d':'30 dies'};
 
 const SCALES = {
   temp:[[6,[150,225,230]],[12,[130,205,190]],[16,[150,210,150]],[20,[200,225,120]],[24,[250,240,110]],[28,[252,205,80]],[32,[250,150,60]],[36,[235,85,50]],[40,[195,25,35]],[44,[150,10,30]]],
@@ -822,6 +951,7 @@ function amagaVella(st){return $('stale')&&$('stale').checked && esVella(st);}
 // ------------------------------------------------------------------ estat
 let DATA=null, markers=[], activeFilter=null;
 let streakMode=null, countMode=null;
+let recMode=null, recData=null;                 // comptador de DIES sense recuperació d'humitat (matinada)
 let timeT=null, tDomain=null;   // màquina del temps (timeT=null → en directe)
 let reviewMode=null;            // dia de l'arxiu que s'està revisant (null → dades en directe)
 const map=L.map('map',{zoomControl:true,zoomSnap:0.25,zoomDelta:0.5,wheelPxPerZoomLevel:140}).setView([39.55,-0.60],8);
@@ -966,16 +1096,28 @@ function renderPresets(){
 }
 function highlightChip(el){document.querySelectorAll('#presets .chip').forEach(x=>x.classList.remove('on'));if(el)el.classList.add('on');}
 
+function llegendaPacumGradient(bound){       // gradient amb els colors FIXOS de la paleta, retallat a [0,bound]
+  const N=24, stops=[];
+  for(let i=0;i<=N;i++){ const v=bound*i/N; stops.push(colorFor('pacum',v)+' '+Math.round(i/N*100)+'%'); }
+  return stops.join(',');
+}
 function renderLegend(){
   const vk=selVar.value, L_=$('legend');
   if(vk==='cap'){ L_.innerHTML='<div class="muted">Sense variable: el mapa mostra només la base i, si les actives, les capes de vent o radar.</div>'; return; }
+  if(vk==='pacum'){                           // colors FIXOS; només es retalla l'extensió al màxim real
+    actualitzaEscalaPacum(); const bound=pacumMax;
+    let ticks=''; for(let i=0;i<=6;i++) ticks+='<span>'+Math.round(bound*i/6)+'</span>';
+    let nota='mm · acumulat '+(PACUM_LAB[pacumPeriode]||pacumPeriode)+(pacumFont==='qpe'?' · radar+estacions':' · estacions IDW');
+    if(pacumFont==='qpe' && qpeInfo && qpeInfo.obs) nota+=' · radar de les '+new Date(qpeInfo.obs).toLocaleString('ca-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    L_.innerHTML='<div class="bar" style="--g:'+llegendaPacumGradient(bound)+'"></div><div class="barlabels">'+ticks
+      +'</div><div class="muted" style="text-align:center;font-size:10px;margin-top:1px">'+nota+'</div>';
+    return;
+  }
   let sc, unit, nota='';
   if(vk==='barbes'){ sc=SCALES.wind; unit='km/h'; nota=' · número al cercle = ratxa diària'; }
   else {
     sc=SCALES[VARS[vk].scale]; unit=VARS[vk].unit;
     if(sc==='wheel'){L_.innerHTML='<div class="muted">Color = direcció (0–360°, roda de matís)</div>';return;}
-    if(vk==='pacum'){ nota=' · acumulat '+(PACUM_LAB[pacumPeriode]||pacumPeriode)+' · per estació';
-      if(pacumFont==='qpe' && qpeInfo && qpeInfo.obs) nota+=' · radar de les '+new Date(qpeInfo.obs).toLocaleString('ca-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
   }
   const min=sc[0][0], max=sc[sc.length-1][0], span=max-min||1;
   const stops=sc.map(s=>rgb(s[1])+' '+Math.round((s[0]-min)/span*100)+'%').join(',');
@@ -1013,7 +1155,8 @@ function applyCombined(){
   render();
 }
 function clearStreak(){streakMode=null;document.querySelectorAll('#streakPresets .chip').forEach(x=>x.classList.remove('on'));}
-function surtModes(){ clearStreak(); countMode=null; }   // deixa ratxa/comptador per mostrar un altre mapa
+function surtModes(){ clearStreak(); countMode=null; recMode=null; }   // deixa ratxa/comptador/dies per mostrar un altre mapa
+function netejaAnalisi(){ surtModes(); activeFilter=null; if(typeof highlightChip==='function') highlightChip(null); const ri=$('recInfo'); if(ri) ri.textContent=''; }   // buida totes les anàlisis actives
 function setThreshold(vk,op,val){surtModes();activeFilter={type:'single',v:vk,op,val:parseFloat(val)};render();}
 $('applyThr').onclick=()=>{const t=$('thr').value;if(t==='')return;setThreshold(selVar.value,$('op').value,t);highlightChip(null);};
 $('clearThr').onclick=()=>{surtModes();activeFilter=null;highlightChip(null);renderLegend();render();};
@@ -1121,9 +1264,11 @@ function countColor(frac){
     return rgb([lerp(sc[i][1][0],sc[i+1][1][0],t),lerp(sc[i][1][1],sc[i+1][1][1],t),lerp(sc[i][1][2],sc[i+1][1][2],t)]); } }
   return rgb(sc[sc.length-1][1]);
 }
-function makeCountIcon(st,n,denom){
-  const col=countColor(denom?n/denom:0), zf=pillZoom(), d=Math.round(20*zf), fs=Math.max(10,Math.round(12*zf)), radius=(st.font==='Meteocat')?'6px':'50%';
-  const html=`<div class="pill" style="width:${d}px;height:${d}px;border-radius:${radius};background:${col};color:${txtColor(col)};font-size:${fs}px">${n}</div>`;
+function makeCountIcon(st,n,denom,colOverride,alerta){
+  const col=colOverride||countColor(denom?n/denom:0), zf=pillZoom();
+  const d=Math.round(20*zf), fs=Math.max(10,Math.round(12*zf)), radius=(st.font==='Meteocat')?'6px':'50%';
+  const ring=alerta?';box-shadow:0 0 0 2px #fff, 0 0 9px 3px rgba(220,0,40,.85);outline:1px solid #7a0016':'';   // mida normal, només l'halo per assenyalar
+  const html=`<div class="pill" style="width:${d}px;height:${d}px;border-radius:${radius};background:${col};color:${txtColor(col)};font-size:${fs}px${ring}">${n}</div>`;
   return L.divIcon({className:'',html,iconSize:[d,d],iconAnchor:[d/2,d/2]});
 }
 function countLegHTML(denom, title){
@@ -1133,6 +1278,23 @@ function countLegHTML(denom, title){
   return '<div class="wl-title">'+(title||('Hores que compleixen (de '+N+')'))+'</div>'+
          '<div class="wl-bar" style="background:linear-gradient(90deg,'+stops+')"></div>'+
          '<div class="wl-ticks">'+ticks+'</div>';
+}
+// HUMITAT (recuperació nocturna): INVERTIT -> com més hores de recuperació, més BLAU;
+// els de POCA recuperació (≤3 h) en ROIG cada volta més intens, per assenyalar-los.
+function countColorHR(n,denom){
+  const N=denom||1;
+  if(n<=3){ const t=(3-Math.max(0,Math.min(3,n)))/3;                 // 0 (n=3) → 1 (n=0)
+    return rgb([lerp(239,120,t),lerp(68,0,t),lerp(68,20,t)]); }      // #ef4444 roig → #780014 roig intens
+  const t=Math.max(0,Math.min(1,(n-3)/Math.max(1,N-3)));
+  return rgb([lerp(191,12,t),lerp(219,74,t),lerp(254,160,t)]);       // #bfdbfe blau clar → #0c4aa0 blau fosc
+}
+function countLegHRHTML(N){
+  const stops=[]; for(let i=0;i<=10;i++){ const f=i/10; stops.push(countColorHR(Math.round(f*N),N)+' '+Math.round(f*100)+'%'); }
+  const ticks=[0,Math.round(N/2),N].map((v,i)=>'<span style="left:'+(i*50)+'%">'+v+' h</span>').join('');
+  return '<div class="wl-title">Recuperació d\'humitat (hores ≥ llindar)</div>'+
+         '<div class="wl-bar" style="background:linear-gradient(90deg,'+stops.join(',')+')"></div>'+
+         '<div class="wl-ticks">'+ticks+'</div>'+
+         '<div class="muted" style="font-size:10px;margin-top:3px">🔴 ≤3 h = poca recuperació (destacat) · 🔵 més hores = més recuperació</div>';
 }
 
 function makeStreakIcon(st,streak,col){
@@ -1182,24 +1344,115 @@ function countTooltip(st,n,tot){
     <span class="muted">${tot} h amb dada · ara: ${fmt(v,getVal(st,v))} ${u}</span></div>`;
 }
 function renderCount(){
-  const {v,op,val,hores}=countMode; let shown=0,maxn=0;
+  const {v,op,val,hores}=countMode; let shown=0,maxn=0; const esHR=(v==='hr');   // humitat: mode "recuperació" invertit
   DATA.estacions.forEach(st=>{
     if(st.lat==null||st.lon==null||!xarxaActiva(st)||amagaVella(st)||!altitudOk(st))return;
     const {n,tot}=comptaHores(st,v,op,val,hores);
     if(tot===0) return;                       // sense dada a la finestra
-    const m=L.marker([st.lat,st.lon],{icon:makeCountIcon(st,n,hores)});
-    m.setOpacity(n===0?0.5:1);
-    m.setZIndexOffset(1000+n*10);             // les de més hores, per damunt
+    const col=esHR?countColorHR(n,hores):undefined, alerta=esHR&&n<=3;   // poca recuperació -> roig destacat
+    const m=L.marker([st.lat,st.lon],{icon:makeCountIcon(st,n,hores,col,alerta)});
+    m.setOpacity(esHR?1:(n===0?0.5:1));
+    m.setZIndexOffset(esHR ? (6000-n*20) : (1000+n*10));   // HR: els de poca recuperació (roig), per damunt
     m.bindTooltip(countTooltip(st,n,tot),{direction:'top',opacity:.97,offset:[0,-6]});
     m.on('click',()=>{m.bindPopup(popupHTML(st,v),{minWidth:300}).openPopup();setTimeout(()=>drawChart(st,v),60);});
     m.addTo(map); markers.push(m); shown++; if(n>maxn)maxn=n;
   });
-  mapLeg(countLegHTML(hores));
+  mapLeg(esHR?countLegHRHTML(hores):countLegHTML(hores));
   const ops=op.replace('>','&gt;').replace('<','&lt;');
-  $('status').innerHTML=`Comptador d'hores · <b>${VARS[v].label} ${ops} ${val}${VARS[v].unit}</b> · últimes <b>${hores} h</b><br>Estacions: <b>${shown}</b> · màxim: <b>${maxn} h</b>`;
-  $('legend').innerHTML='<div class="muted">Color = hores que compleixen (0 → '+hores+') · número = hores</div>';
+  $('status').innerHTML=`Comptador d'hores · <b>${VARS[v].label} ${ops} ${val}${VARS[v].unit}</b> · últimes <b>${hores} h</b>`
+    +(esHR?' · <b>mode recuperació d\'humitat</b>':'')+`<br>Estacions: <b>${shown}</b> · màxim: <b>${maxn} h</b>`;
+  $('legend').innerHTML=esHR
+    ? '<div class="muted">🔵 Blau = més hores de recuperació · <b style="color:#dc143c">🔴 roig ≤3 h</b> = poca recuperació (destacat) · número = hores</div>'
+    : '<div class="muted">Color = hores que compleixen (0 → '+hores+') · número = hores</div>';
 }
 
+// ---- COMPTADOR DE DIES SENSE RECUPERACIÓ D'HUMITAT (matinada 02-06 h, sobre l'arxiu) ----
+function _diaKeyLocal(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+const arxiuRecCache={};                          // dk(AAAA-MM-DD) -> {idema:[hr de matinada]}
+async function assegurarArxiuDies(){
+  if(arxiuDies && arxiuDies.size) return;
+  try{ const r=await fetch(ARXIU_URL+'index.json?_='+Date.now(),{cache:'no-store'}); if(r.ok){ const j=await r.json(); (j.dies||[]).forEach(k=>arxiuDies.add(k)); } }catch(e){}
+}
+async function matinadaDia(dk){
+  if(arxiuRecCache[dk]) return arxiuRecCache[dk];
+  const out={};
+  try{
+    const r=await fetch(ARXIU_URL+dk+'.enc?_='+Date.now(),{cache:'no-store'});
+    if(r.ok){ const d=await desxifra(await r.json(),PASS);
+      (d.estacions||[]).forEach(e=>{ const arr=[];
+        (e.historic||[]).forEach(row=>{ const h=new Date(row.t).getHours(); if(h>=2&&h<=6){ const v=row.hr; if(v!=null&&!isNaN(v)) arr.push(+v); } });
+        if(arr.length) out[e.idema]=arr; }); }
+  }catch(e){}
+  arxiuRecCache[dk]=out; return out;
+}
+async function computeRec(thr){
+  await assegurarArxiuDies();
+  const cut=new Date(); cut.setHours(0,0,0,0); cut.setDate(cut.getDate()-30);   // acotat a 30 dies com a molt
+  const cutKey=_diaKeyLocal(cut);
+  const perStDay={};                              // idema -> { dk -> [hr...] de matinada }
+  const add=(idema,dk,hr)=>{ if(hr==null||isNaN(hr)||dk<cutKey)return; if(!perStDay[idema])perStDay[idema]={}; (perStDay[idema][dk]||(perStDay[idema][dk]=[])).push(+hr); };
+  (DATA?DATA.estacions:[]).forEach(st=>{ (st.historic||[]).forEach(row=>{ const d=new Date(row.t), h=d.getHours(); if(h>=2&&h<=6) add(st.idema,_diaKeyLocal(d),row.hr); }); });
+  for(const dk of [...(arxiuDies||[])].filter(k=>k>=cutKey)){ const day=await matinadaDia(dk);
+    for(const idema in day){ if(!perStDay[idema])perStDay[idema]={}; perStDay[idema][dk]=(perStDay[idema][dk]||[]).concat(day[idema]); } }
+  const out={};
+  for(const idema in perStDay){
+    const days=Object.keys(perStDay[idema]).sort();    // AAAA-MM-DD ascendent (cronològic)
+    let streak=0, consecR=0, tot=0, total=0; const dd=[];
+    for(const dk of days){ const arr=perStDay[idema][dk]; if(arr.length<3) continue; tot++;
+      const avg=arr.reduce((a,b)=>a+b,0)/arr.length; dd.push({dk,avg,n:arr.length});
+      if(avg<thr){ streak+=1; consecR=0; total+=1; }   // dia sense recuperació -> allarga la ratxa i suma al total
+      else { consecR+=1; if(consecR>=2){ streak=0; consecR=0; } }   // 2 dies seguits recuperant -> trenca; 1 dia solt es tolera
+    }
+    if(tot>0) out[idema]={streak, total, tot, days:dd, thr};   // days = desglossament per dia (per inspeccionar)
+  }
+  return out;
+}
+function recDetallHTML(st,r){
+  const thr=r.thr, esT=recMode&&recMode.mode==='total';
+  // marca quins dies formen la RATXA actual (des de l'últim trencament per 2 recuperacions seguides)
+  let consecR=0, lastReset=-1;
+  for(let i=0;i<r.days.length;i++){ if(r.days[i].avg>=thr){ consecR++; if(consecR>=2) lastReset=i; } else consecR=0; }
+  const files=r.days.slice().reverse().map((d,ri)=>{ const i=r.days.length-1-ri; const sec=d.avg<thr, enRatxa=(i>lastReset && sec);
+    return `<tr style="${enRatxa?'background:rgba(200,16,16,.10)':''}"><td style="padding:1px 8px 1px 0;white-space:nowrap">${d.dk.slice(5)}</td>`
+      +`<td style="text-align:right;padding:1px 8px 1px 0"><b>${d.avg.toFixed(0)}%</b></td>`
+      +`<td style="color:${sec?'#c81010':'#2b8a3e'}">${sec?'✗ sec':'✓ recupera'}</td></tr>`; }).join('');
+  return `<div style="min-width:236px"><b>${st.nom}</b> <span class="muted">(${st.font})</span>`
+    +`<div class="muted" style="font-size:11px;margin:4px 0 6px">Mitjana d'humitat de <b>matinada (02–06 h)</b> de cada dia · llindar recuperació <b>${thr}%</b>.<br>`
+    +(esT?('<b>Total 30 dies:</b> '+r.total+' dies sense recuperar.'):('<b>Ratxa actual:</b> '+r.streak+' dies (fila ombrejada = ratxa; es trenca amb 2 ✓ seguits).'))+`</div>`
+    +`<div style="max-height:230px;overflow:auto"><table style="font-size:12px;border-collapse:collapse">${files}</table></div></div>`;
+}
+function recVal(r){ return recMode && recMode.mode==='total' ? r.total : r.streak; }
+function diesColor(n,maxN){ const f=maxN>0?Math.max(0,Math.min(1,n/maxN)):0;
+  if(f<=0.5){ const t=f/0.5; return rgb([lerp(43,240,t),lerp(108,192,t),lerp(176,0,t)]); }   // blau -> groc
+  const t=(f-0.5)/0.5; return rgb([lerp(240,200,t),lerp(192,16,t),lerp(0,16,t)]); }           // groc -> roig
+function recLegHTML(maxN){ const N=Math.max(1,maxN); const stops=[];
+  for(let i=0;i<=10;i++) stops.push(diesColor(Math.round(i/10*N),N)+' '+(i*10)+'%');
+  const ticks=[0,Math.round(N/2),N].map((v,i)=>'<span style="left:'+(i*50)+'%">'+v+'</span>').join('');
+  const tit=(recMode&&recMode.mode==='total')?'Dies sense recuperació (30 dies)':'Ratxa dies sense recuperació';
+  return '<div class="wl-title">'+tit+' (matinada)</div><div class="wl-bar" style="background:linear-gradient(90deg,'+stops.join(',')+')"></div><div class="wl-ticks">'+ticks+'</div>';
+}
+function recTooltip(st,r){ const esT=recMode.mode==='total';
+  return `<div class="lp-tt"><b>${st.nom}</b> <span class="muted">(${st.font} · ${st.provincia})</span><br><span class="big">${recVal(r)} dies</span> sense recuperació ${esT?'(últims 30)':'(ratxa)'}<br><span class="muted">de ${r.tot} dies amb dada · matinada 02–06 h &lt; ${recMode.thr}%${esT?'':' · trenca amb 2 dies seguits recuperant'}</span></div>`; }
+function renderRec(){
+  if(!recData) return;
+  const esT=recMode.mode==='total';
+  let maxn=0; for(const k in recData){ const v=recVal(recData[k]); if(v>maxn) maxn=v; }
+  let shown=0;
+  DATA.estacions.forEach(st=>{
+    if(st.lat==null||st.lon==null||!xarxaActiva(st)||amagaVella(st)||!altitudOk(st))return;
+    const r=recData[st.idema]; if(!r||r.tot===0) return;
+    const nv=recVal(r), col=diesColor(nv,maxn), alerta=(maxn>0 && nv>0 && nv>=Math.max(2,Math.ceil(maxn*0.6)));
+    const m=L.marker([st.lat,st.lon],{icon:makeCountIcon(st,nv,maxn||1,col,alerta)});
+    m.setOpacity(1); m.setZIndexOffset(6000+nv*20);
+    m.bindTooltip(recTooltip(st,r),{direction:'top',opacity:.97,offset:[0,-6]});
+    m.on('click',()=>{ m.bindPopup(recDetallHTML(st,r),{minWidth:250}).openPopup(); });   // desglossament dia a dia
+    m.addTo(map); markers.push(m); shown++;
+  });
+  mapLeg(recLegHTML(maxn));
+  const lab = esT ? 'Dies sense recuperació (últims 30 dies)' : 'Ratxa de dies sense recuperació (trenca amb 2 dies seguits recuperant)';
+  $('status').innerHTML=`${lab} · matinada 02–06 h &lt; <b>${recMode.thr}%</b><br>Estacions: <b>${shown}</b> · màxim: <b>${maxn} dies</b>`;
+  $('legend').innerHTML='<div class="muted">🔴 més dies sense recuperar (destacats) · 🔵 pocs o cap · número = dies'+(esT?' (total 30d)':' (ratxa)')+'</div>';
+}
 let chart=null;
 function popupHTML(st,vk){
   vk=vk||selVar.value;
@@ -1286,7 +1539,7 @@ function calcDomini(){
   DATA.estacions.forEach(st=>{ const h=st.historic; if(h&&h.length){ const t=toDate(h[0].t); if(t&&t.getTime()<tMin) tMin=t.getTime(); } });
   if(tMin>=tMax) tMin=tMax-24*3600000;
   const lim=tMax-6*24*3600000; if(tMin<lim) tMin=lim;
-  const TB_STEP=1800000;                       // pas de 30 min (cadència de les dades)
+  const TB_STEP=1800000;                       // pas de 30 min (cadència de les dades AVAMET)
   tDomain={min:tMin,max:tMax,step:TB_STEP,steps:Math.max(1,Math.round((tMax-tMin)/TB_STEP))};
   const r=$('tbRange'); if(r){ r.min=0; r.max=tDomain.steps;
     r.value=(timeT==null)?tDomain.steps:Math.max(0,Math.min(tDomain.steps,Math.round((timeT-tMin)/TB_STEP))); }
@@ -1309,6 +1562,9 @@ function setTimeT(T){
   else { if(bar)bar.classList.add('tt'); $('tbLabel').textContent='🕘 '+fmtTemps(T); }
   if(ventClickOn&&ventLayer) ventLayer.redraw();   // el camp de vent segueix l'hora
   if(typeof radSync==='function'){ if(radModeOn) radModeExit(); else radSync(); }  // radar/echotop segueix l'hora
+  if(typeof llampsLayer!=='undefined' && llampsLayer && llampsOn){ llampsLayer.redraw(); llampsInfoAct(); }  // llamps segueixen l'hora
+  if(selVar.value==='pacum' && pacumFont==='qpe' && $('pacumSurf') && $('pacumSurf').checked) recarregaPacumQPE();  // pluja QPE segueix l'hora/dia
+  if(typeof renderArxiuVars==='function') renderArxiuVars();   // selector de variables arxivades (Arxiu)
   render();
 }
 function tbStep(d){
@@ -1326,15 +1582,18 @@ function render(){
   if(!DATA)return;
   if(streakMode){ renderStreak(); return; }
   if(countMode){ renderCount(); return; }
+  if(recMode){ renderRec(); return; }
   const vk=selVar.value, barbMode=(vk==='barbes');
-  if(vk==='pacum'){ if(pacumFont==='idw'){ precGrid=null; } if(precLayer) precLayer.redraw(); }   // IDW recalcula; QPE manté el ràster carregat
+  if(vk==='pacum'){ if(pacumFont==='idw'){ precGrid=null; calculaPrecGrid(); } actualitzaEscalaPacum(); if(precLayer) precLayer.redraw(); }   // IDW recalcula; escala dinàmica al rang real
   if(vk==='cap'){                                  // sense variable: mapa net (només base + capes de vent/radar)
     $('status').innerHTML='Sense variable · només base'+(ventClickOn?' i vent':'');
     return;
   }
   const filtering=!!activeFilter; let nOk=0, shown=0;
+  const amagaEstacions=(selVar.value==='pacum' && $('amagaEst') && $('amagaEst').checked);   // només superfície
   DATA.estacions.forEach(st=>{
     if(st.lat==null||st.lon==null||!xarxaActiva(st)||amagaVella(st)||!altitudOk(st))return;
+    if(amagaEstacions) return;                        // casella "amagar estacions (només superfície)"
     if(barbMode){
       if(st.actual.vv==null) return;               // barbes: només estacions amb vent
       afegirMarker(map,markers,st,makeBarbIcon(st)); shown++; return;
@@ -1452,34 +1711,189 @@ function aplicaCombo(key){
   setTimeout(()=>{ map.invalidateSize(); map2.invalidateSize(); map2.setView(map.getCenter(),map.getZoom(),{animate:false}); renderCombinat(); if(flameLL) posaFlames(); if(perimLL.length) redibuixaPerim(); },260);
 }
 
+// Recarrega la pluja QPE segons l'estat: en directe (timeT==null) la finestra "ara";
+// en històric (màquina del temps enrere) la sèrie horària acabant a l'hora triada.
+function recarregaPacumQPE(){ if(pacumFont!=='qpe') return;
+  const p=pacumPeriode;
+  if(reviewMode){ const m=(p==='30d'?'30d':(p==='7d'?'7d':(p==='3d'?'3d':'dia'))); qpeDailyRender(m); preparaPacumEstacions(m).then(()=>render()); return; }
+  if(p==='3d'||p==='30d'){ qpeDailyRender(p); preparaPacumEstacions(p).then(()=>render()); return; }   // superfície + discos d'estació
+  if(typeof timeT!=='undefined' && timeT!=null) qpeSync(); else carregaQPE(p); }     // horari: finestres "ara" o sèrie
+// ---- ARXIU DIARI de QPE (pluja d'un dia i acumulats 3d/30d, sumant fitxers diaris) ----
+function _keyDate(k){ return new Date(+k.slice(0,4), +k.slice(4,6)-1, +k.slice(6,8)); }
+function _dateKey(d){ return ''+d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0'); }
+function _diaLabelK(k){ return diaLabelLlarg(k.slice(0,4)+'-'+k.slice(4,6)+'-'+k.slice(6,8)); }
+function qpeRefDayKey(){ return reviewMode ? String(reviewMode).replace(/-/g,'') : _dateKey(new Date()); }
+async function carregaQPEDies(){
+  try{ const r=await fetch(QPE_URL+'qpe_dies.json?_='+Date.now(),{cache:'no-store'}); if(r.ok){ const j=await r.json(); qpeDiesList=j.dies||[]; } }catch(e){}
+  return qpeDiesList;
+}
+async function obteQPEDia(key){
+  const avui=_dateKey(new Date()), useCache=(key!==avui);   // el dia d'avui és parcial: no el cachegem
+  if(useCache && qpeDiaCache[key]) return qpeDiaCache[key];
+  if(!PASS) return null;
+  for(let a=0;a<2;a++){
+    try{
+      const r=await fetch(QPE_URL+'dia/'+key+'.enc?_='+Date.now(),{cache:'no-store'});
+      if(!r.ok) throw 0;
+      const p=await desxifra(await r.json(),PASS);
+      const mb=b64(p.mask), dd=b64(p.d), tot=p.nx*p.ny, val=new Float32Array(tot); val.fill(NaN);
+      let k=0; for(let i=0;i<tot;i++){ if((mb[i>>3]>>(7-(i&7)))&1) val[i]=dd[k++]*p.esc; }
+      const G={bbox:p.bbox,nx:p.nx,ny:p.ny,val};
+      if(useCache) qpeDiaCache[key]=G; return G;
+    }catch(e){ if(a===0) await new Promise(res=>setTimeout(res,400)); }
+  }
+  return null;
+}
+async function qpeSumaDies(endKey,n){
+  const dies=await carregaQPEDies(); const want=new Set(); let d=_keyDate(endKey);
+  for(let i=0;i<n;i++){ want.add(_dateKey(d)); d.setDate(d.getDate()-1); }
+  const avail=(dies||[]).filter(k=>want.has(k));
+  if(!avail.length) return null;
+  let out=null,used=0,nx,ny,bbox;
+  for(const k of avail){ const G=await obteQPEDia(k); if(!G) continue; used++;
+    if(!out){ out=new Float32Array(G.val.length); out.fill(NaN); nx=G.nx;ny=G.ny;bbox=G.bbox; }
+    const v=G.val; for(let i=0;i<v.length;i++){ const x=v[i]; if(isNaN(x))continue; out[i]=isNaN(out[i])?x:out[i]+x; } }
+  return used?{grid:{bbox,nx,ny,val:out},used}:null;
+}
+const arxiuPrecCache={};                          // dk(AAAA-MM-DD) -> {idema: mm total del dia}
+async function precDiaArxiu(dk){
+  if(arxiuPrecCache[dk]) return arxiuPrecCache[dk];
+  const out={};
+  try{ const r=await fetch(ARXIU_URL+dk+'.enc?_='+Date.now(),{cache:'no-store'});
+    if(r.ok){ const d=await desxifra(await r.json(),PASS);
+      (d.estacions||[]).forEach(e=>{ let mm=0,has=false; (e.historic||[]).forEach(row=>{ const p=row.prec; if(p!=null&&!isNaN(p)&&+p>=0){ mm+=+p; has=true; } }); if(has) out[e.idema]=Math.round(mm*10)/10; }); }
+  }catch(e){}
+  arxiuPrecCache[dk]=out; return out;
+}
+// injecta a les estacions l'acumulat de pluja de 3d/30d (històric viu + arxiu) perquè isquen els discos
+async function preparaPacumEstacions(period){
+  if(!DATA) return; const n=period==='30d'?30:(period==='7d'?7:(period==='3d'?3:(period==='dia'?1:0))); if(!n) return;
+  const keys=[]; let d=_keyDate(qpeRefDayKey()); for(let i=0;i<n;i++){ keys.push(_diaKeyLocal(d)); d.setDate(d.getDate()-1); }
+  const live={};                                  // idema -> {dk: mm}
+  DATA.estacions.forEach(st=>{ (st.historic||[]).forEach(r=>{ const dk=_diaKeyLocal(new Date(r.t)); if(keys.indexOf(dk)<0)return; const p=r.prec; if(p==null||isNaN(p))return; if(!live[st.idema])live[st.idema]={}; live[st.idema][dk]=(live[st.idema][dk]||0)+ +p; }); });
+  const liveDies=new Set(); for(const id in live) for(const dk in live[id]) liveDies.add(dk);
+  const arx={}; for(const dk of keys.filter(k=>!liveDies.has(k))) arx[dk]=await precDiaArxiu(dk);
+  DATA.estacions.forEach(st=>{ let s=0,has=false;
+    for(const dk of keys){ let mm=(live[st.idema]&&live[st.idema][dk]!=null)?live[st.idema][dk]:(arx[dk]?arx[dk][st.idema]:undefined);
+      if(mm!=null&&!isNaN(mm)){ s+=+mm; has=true; } }
+    if(!st.actual)st.actual={}; if(!st.actual.pacum)st.actual.pacum={};
+    st.actual.pacum[period]= has? Math.round(s*10)/10 : null; });
+}
+let qpeDiaSeq=0;
+async function qpeDailyRender(mode){
+  if(selVar.value!=='pacum'||pacumFont!=='qpe') return;
+  const seq=++qpeDiaSeq, endKey=qpeRefDayKey(), n=(mode==='30d'?30:(mode==='7d'?7:(mode==='3d'?3:1)));
+  $('status').innerHTML='Carregant QPE diari…';
+  let G=null, used=0;
+  if(n===1){ G=await obteQPEDia(endKey); used=G?1:0; }
+  else { const r=await qpeSumaDies(endKey,n); if(r){ G=r.grid; used=r.used; } }
+  if(seq!==qpeDiaSeq || selVar.value!=='pacum' || pacumFont!=='qpe') return;   // resposta vella
+  if(!G){ precGrid=null; if(precLayer)precLayer.redraw(); renderLegend();
+    $('status').innerHTML='QPE diari: encara no hi ha radar arxivat per a eixe dia/rang (l\'arxiu s\'omple des d\'avui).'; return; }
+  precGrid=G; qpeInfo={diari:true,obs:_keyDate(endKey).getTime()};
+  actualitzaEscalaPacum(); if(precLayer)precLayer.redraw(); renderLegend();
+  const dl=_diaLabelK(endKey);
+  const lab = (mode==='dia') ? ('pluja del dia · '+dl) : ((mode==='30d'?'30 dies':(mode==='7d'?'7 dies':'3 dies'))+' fins al '+dl);
+  $('status').innerHTML='Pluja <b>QPE radar+estacions</b> · '+lab+(n>1?(' · '+used+'/'+n+' dies'):'')+' · corregit amb estacions';
+}
 selVar.onchange=()=>{surtModes();
   const esP=(selVar.value==='pacum');
-  $('pacumPer').style.display=esP?'':'none';   // superfície IDW i selector de font fora (per estació, sense interpolar)
+  $('pacumPer').style.display=esP?'':'none'; $('pacumSurfWrap').style.display=esP?'':'none'; $('amagaEstWrap').style.display=esP?'':'none'; $('pacumFont').style.display=esP?'':'none';
   precGrid=null; actualitzaPrecLayer();
-  if(esP && pacumFont==='qpe') carregaQPE(pacumPeriode);
+  if(esP && pacumFont==='qpe') recarregaPacumQPE();
   renderPresets();renderLegend();highlightChip(null);render();};
 $('pacumPer').onchange=()=>{ pacumPeriode=$('pacumPer').value; precGrid=null; renderLegend();
-  if(pacumFont==='qpe') carregaQPE(pacumPeriode); actualitzaPrecLayer(); render(); };
+  if(pacumFont==='qpe') recarregaPacumQPE();
+  else if(pacumPeriode==='3d'||pacumPeriode==='30d') preparaPacumEstacions(pacumPeriode).then(()=>{ precGrid=null; actualitzaPrecLayer(); render(); });
+  actualitzaPrecLayer(); render(); };
 $('pacumFont').onchange=()=>{ pacumFont=$('pacumFont').value; precGrid=null;
-  if(pacumFont==='qpe') carregaQPE(pacumPeriode); actualitzaPrecLayer(); renderLegend(); render(); };
+  if(pacumFont==='qpe') recarregaPacumQPE(); actualitzaPrecLayer(); renderLegend(); render(); };
 $('pacumSurf').onchange=()=>actualitzaPrecLayer();
+$('amagaEst').onchange=()=>render();
+// ---- SÈRIE HORÀRIA ESCOMBRABLE (pluja QPE seguint la màquina del temps) ----
+async function carregaQPESerie(){
+  if(qpeSerie) return qpeSerie;
+  if(!PASS) return null;
+  try{
+    const r=await fetch(QPE_URL+'qpe_series.enc?_='+Date.now(),{cache:'no-store'});
+    if(!r.ok) return null;
+    const p=await desxifra(await r.json(),PASS);
+    (p.frames||[]).forEach(f=>{ f._mb=b64(f.mask); f._dd=b64(f.d); });   // desxifra els bytes; els valors es decodifiquen a demanda
+    qpeSerie={bbox:p.bbox,nx:p.nx,ny:p.ny,dt:p.dt,biaix:p.biaix,frames:(p.frames||[]).sort((a,b)=>a.ts-b.ts)};
+    return qpeSerie;
+  }catch(e){ return null; }
+}
+function _frameVal(S,f){ if(f._val) return f._val;
+  const tot=S.nx*S.ny, v=new Float32Array(tot); v.fill(NaN);
+  let k=0; for(let i=0;i<tot;i++){ if((f._mb[i>>3]>>(7-(i&7)))&1) v[i]=f._dd[k++]*f.esc; }
+  f._val=v; return v; }
+function qpeHores(period,endTs){
+  if(period==='1h')return 1; if(period==='3h')return 3; if(period==='6h')return 6; if(period==='24h')return 24;
+  if(period==='dia'){ const m=new Date(endTs); m.setHours(0,0,0,0); return Math.max(1,Math.round((endTs-m.getTime())/3600000)); }
+  return null;   // '7d' no és escombrable (la sèrie només guarda ~48-72 h)
+}
+function qpeGridAt(S,endTs,hores){         // suma els tiles amb ts dins (endTs-hores, endTs]
+  const tot=S.nx*S.ny, out=new Float32Array(tot); out.fill(NaN); const t0=endTs-hores*3600000; let used=0,last=0;
+  for(const f of S.frames){ if(f.ts>endTs || f.ts<=t0) continue; const v=_frameVal(S,f); used++; last=Math.max(last,f.ts);
+    for(let i=0;i<tot;i++){ const x=v[i]; if(isNaN(x))continue; out[i]=isNaN(out[i])?x:out[i]+x; } }
+  return used?{bbox:S.bbox,nx:S.nx,ny:S.ny,val:out,_tiles:used,_last:last}:null;
+}
+async function qpeSync(){                   // pinta la pluja QPE a l'hora de la màquina del temps
+  if(selVar.value!=='pacum' || pacumFont!=='qpe') return;
+  const histT=(typeof timeT!=='undefined'&&timeT!=null)?timeT:null;
+  if(histT==null){ precGrid=null; carregaQPE(pacumPeriode); return; }   // directe: finestra "ara"
+  const hp=qpeHores(pacumPeriode,histT);
+  if(hp==null){ precGrid=null; if(precLayer)precLayer.redraw(); renderLegend();
+    $('status').innerHTML='La pluja de 7 dies no és escombrable enrere; tria 1h/3h/6h/24h/dia o torna al directe.'; return; }
+  const S=await carregaQPESerie();
+  if(!S){ precGrid=null; if(precLayer)precLayer.redraw();
+    $('status').innerHTML='Sèrie QPE no disponible (encara omplint-se el buffer o cal recarregar).'; return; }
+  const G=qpeGridAt(S,histT,hp);
+  if(G){ precGrid=G; qpeInfo={obs:G._last,biaix:S.biaix,hist:true};
+    actualitzaEscalaPacum(); if(precLayer)precLayer.redraw(); renderLegend();
+    $('status').innerHTML='Pluja <b>QPE radar</b> · '+(PACUM_LAB[pacumPeriode]||pacumPeriode)+' acabant a <b>'+fmtTemps(histT)+'</b> · '+G._tiles+' h de radar';
+  } else { precGrid=null; if(precLayer)precLayer.redraw(); renderLegend();
+    $('status').innerHTML='QPE històric: sense radar per a eixa hora (fora de la finestra escombrable).'; }
+}
+// Baixador ROBUST de la graella QPE: reintenta (la branca 'qpe' es reescriu amb force-push
+// cada ~15 min i el raw de GitHub pot donar un 404/error momentani). Cau a qpeCache.
+async function _baixaQPE(period, tries=5){
+  if(qpeCache[period]) return {G:qpeCache[period], meta:qpeMetaCache[period]||null};
+  let lastErr;
+  for(let a=0;a<tries;a++){
+    try{
+      const r=await fetch(QPE_URL+'qpe_'+period+'.enc?_='+Date.now(),{cache:'no-store'});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const p=await desxifra(await r.json(),PASS);
+      const mb=b64(p.mask), dd=b64(p.d), tot=p.nx*p.ny, val=new Float32Array(tot); val.fill(NaN);
+      let k=0; for(let i=0;i<tot;i++){ if((mb[i>>3]>>(7-(i&7)))&1) val[i]=dd[k++]*p.esc; }
+      const G={bbox:p.bbox,nx:p.nx,ny:p.ny,val:val};
+      qpeCache[period]=G; qpeMetaCache[period]={obs:p.obs,biaix:p.biaix};
+      return {G, meta:qpeMetaCache[period]};
+    }catch(e){ lastErr=e; if(a<tries-1) await new Promise(res=>setTimeout(res, 600*Math.pow(1.6,a))); }   // backoff: 0.6,1,1.5,2.5 s
+  }
+  throw lastErr;
+}
+let qpeSeq=0;                                  // guarda anti-cursa: només s'aplica l'última petició
 async function carregaQPE(period){
   if(pacumFont!=='qpe') return;
-  if(qpeCache[period]){ precGrid=qpeCache[period]; qpeInfo=qpeMetaCache[period]||null; renderLegend(); if(precLayer)precLayer.redraw(); return; }
+  if(qpeCache[period]){ precGrid=qpeCache[period]; qpeInfo=qpeMetaCache[period]||null; actualitzaEscalaPacum(); render(); renderLegend(); if(precLayer)precLayer.redraw(); return; }
   if(!PASS){ $('legend').innerHTML='<div class="muted">Cal entrar amb contrasenya per veure la QPE de radar (xifrada).</div>'; return; }
+  const seq=++qpeSeq;
+  $('status').innerHTML='Carregant QPE de radar · '+(PACUM_LAB[period]||period)+'…';
   try{
-    const r=await fetch(QPE_URL+'qpe_'+period+'.enc?_='+Date.now(),{cache:'no-store'});
-    if(!r.ok){ precGrid=null; if(precLayer)precLayer.redraw();
-      $('status').innerHTML='QPE de radar: encara no disponible per a «'+(PACUM_LAB[period]||period)+'» (el buffer s\'està omplint).'; return; }
-    const p=await desxifra(await r.json(),PASS);
-    const mb=b64(p.mask), dd=b64(p.d), tot=p.nx*p.ny, val=new Float32Array(tot); val.fill(NaN);
-    let k=0; for(let i=0;i<tot;i++){ if((mb[i>>3]>>(7-(i&7)))&1) val[i]=dd[k++]*p.esc; }
-    const G={bbox:p.bbox,nx:p.nx,ny:p.ny,val:val}; qpeCache[period]=G; precGrid=G;
-    qpeMetaCache[period]={obs:p.obs,biaix:p.biaix}; qpeInfo=qpeMetaCache[period];
+    const {G,meta}=await _baixaQPE(period);
+    if(seq!==qpeSeq || pacumFont!=='qpe' || period!==pacumPeriode) return;   // resposta vella: no toques la vista actual
+    precGrid=G; qpeInfo=meta;
+    actualitzaEscalaPacum(); render();          // recolora estacions + superfície amb l'escala dinàmica
     if(precLayer)precLayer.redraw(); renderLegend();
-    const hh=p.obs?new Date(p.obs).toLocaleString('ca-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'?';
-    $('status').innerHTML='Pluja acumulada · <b>QPE radar+estacions</b> · '+(PACUM_LAB[period]||period)+' · <b>radar de les '+hh+'</b>'+(p.biaix!=null?(' · biaix estacions ×'+p.biaix):'');
-  }catch(e){ precGrid=null; if(precLayer)precLayer.redraw(); $('status').innerHTML='No s\'ha pogut carregar la QPE ('+(e.message||e)+').'; }
+    const hh=meta&&meta.obs?new Date(meta.obs).toLocaleString('ca-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'?';
+    $('status').innerHTML='Pluja acumulada · <b>QPE radar+estacions</b> · '+(PACUM_LAB[period]||period)+' · <b>radar de les '+hh+'</b>'+(meta&&meta.biaix!=null?(' · biaix estacions ×'+meta.biaix):'');
+  }catch(e){
+    if(seq!==qpeSeq || pacumFont!=='qpe' || period!==pacumPeriode) return;   // ja estem en un altre període: no esborres res
+    precGrid=null; if(precLayer)precLayer.redraw();
+    $('status').innerHTML='QPE de radar: encara no disponible per a «'+(PACUM_LAB[period]||period)+'» (buffer omplint-se o tall puntual). Torna-ho a provar en uns segons.';
+  }
 }
 ['showVal','onlyVar','fade','hideNoMatch','stale','netAemet','netMeteocat','netAemetCV','netAemetCentre'].forEach(id=>$(id).addEventListener('change',render));
 $('staleH').addEventListener('input',render);
@@ -1495,7 +1909,7 @@ function renderStreakPresets(){
     const c=document.createElement('div'); c.className='chip';
     c.textContent=(op==='>'?'>':'<')+val+(v==='ta'?'°':'%');
     c.onclick=()=>{
-      streakMode={v,op,val}; countMode=null; activeFilter=null; highlightChip(null);
+      streakMode={v,op,val}; countMode=null; recMode=null; activeFilter=null; highlightChip(null);
       document.querySelectorAll('#streakPresets .chip').forEach(x=>x.classList.remove('on')); c.classList.add('on');
       render();
     };
@@ -1513,10 +1927,24 @@ $('cntHores').addEventListener('input',()=>{$('cntHL').textContent=$('cntHores')
 $('cntApply').onclick=()=>{
   const v=selCntVar.value, op=$('cntOp').value, val=parseFloat($('cntVal').value), hores=parseInt($('cntHores').value,10)||8;
   if(isNaN(val)){ $('cntVal').focus(); return; }
-  countMode={v,op,val,hores}; clearStreak(); activeFilter=null; highlightChip(null);
+  countMode={v,op,val,hores}; recMode=null; clearStreak(); activeFilter=null; highlightChip(null);
   if(comboActive){ $('combo').value=''; aplicaCombo(''); } else { render(); }
 };
 $('cntOff').onclick=()=>{ countMode=null; renderLegend(); render(); };
+$('recBtn').onclick=async()=>{
+  if(!PASS){ $('recInfo').textContent='Cal entrar amb contrasenya.'; return; }
+  const thr=parseFloat($('recThr').value); if(isNaN(thr)){ $('recInfo').textContent='Posa un llindar vàlid.'; return; }
+  surtModes(); recMode={thr, mode:$('recTipus').value}; activeFilter=null; highlightChip(null);
+  const b=$('recBtn'), o=b.textContent; b.disabled=true; b.textContent='Calculant…'; $('recInfo').textContent='Baixant l\'històric d\'arxiu (pot tardar uns segons)…';
+  try{ recData=await computeRec(thr); }catch(e){ recData=null; }
+  b.disabled=false; b.textContent=o;
+  if(!recMode) return;                            // s'ha canviat de mode mentre calculava
+  const ns=Object.keys(recData||{}).length;
+  $('recInfo').textContent = ns ? (ns+' estacions · '+(arxiuDies?arxiuDies.size:0)+' dies d\'arxiu analitzats') : 'Encara no hi ha històric d\'arxiu disponible.';
+  renderLegend(); render();
+};
+$('recTipus').onchange=()=>{ if(recMode){ recMode.mode=$('recTipus').value; renderLegend(); render(); } };   // canvi de mode: re-dibuixa (no recalcula)
+$('recOff').onclick=()=>{ recMode=null; recData=null; $('recInfo').textContent=''; renderLegend(); render(); };
 
 // màquina del temps
 $('tbRange').addEventListener('input',()=>{ if(!tDomain)return; const i=parseInt($('tbRange').value,10); setTimeT(i>=tDomain.steps?null:tDomain.min+i*(tDomain.step||1800000)); });
@@ -1589,18 +2017,26 @@ function dibuixaLlegendaExport(c, spec, x, y, w, S){
     c.restore(); return;
   }
   const by=y+22*S, isBarb=spec.k==='barbs', vk=isBarb?'vv':spec.v;
-  const sc=isBarb?SCALES.wind:SCALES[VARS[vk].scale];
+  let sc=isBarb?SCALES.wind:SCALES[VARS[vk].scale];
   if(sc==='wheel'){ c.font=(12*S)+'px Arial'; c.fillStyle='#333'; c.fillText('Direcció del vent (roda de matís, 0–360°)', x+w/2, by); c.restore(); return; }
-  const bw=w*0.82, bh=14*S, bx=x+(w-bw)/2, min=sc[0][0], max=sc[sc.length-1][0], span=(max-min)||1;
+  const bw=w*0.82, bh=14*S, bx=x+(w-bw)/2;
+  let min=sc[0][0], max=sc[sc.length-1][0];
   const g=c.createLinearGradient(bx,0,bx+bw,0);
-  sc.forEach(s=>g.addColorStop(Math.min(1,Math.max(0,(s[0]-min)/span)), rgb(s[1])));
+  if(vk==='pacum'){ min=0; max=pacumMax||200;                 // colors FIXOS, retallat al màxim real
+    for(let i=0;i<=24;i++) g.addColorStop(i/24, colorFor('pacum', max*i/24));
+  } else {
+    const sp=(max-min)||1;
+    sc.forEach(s=>g.addColorStop(Math.min(1,Math.max(0,(s[0]-min)/sp)), rgb(s[1])));
+  }
+  const span=(max-min)||1;
   c.fillStyle=g; c.fillRect(bx,by,bw,bh);
   c.strokeStyle='#777'; c.lineWidth=S; c.strokeRect(bx,by,bw,bh);
   c.fillStyle='#111'; c.font=(11*S)+'px Arial';
   for(let i=0;i<=6;i++) c.fillText(Math.round(min+span*i/6), bx+bw*i/6, by+bh+3*S);
   c.fillStyle='#555'; c.font=(11*S)+'px Arial';
   const unit=isBarb?'km/h':VARS[vk].unit;
-  const extra=isBarb?(unit+' · número al cercle = ratxa màxima del dia'):(spec.k==='streak'?(unit+' · mida = hores consecutives'):(spec.k==='count'?(unit+' · número = hores (de les últimes '+spec.hores+' h)'):unit));
+  let extra=isBarb?(unit+' · número al cercle = ratxa màxima del dia'):(spec.k==='streak'?(unit+' · mida = hores consecutives'):(spec.k==='count'?(unit+' · número = hores (de les últimes '+spec.hores+' h)'):unit));
+  if(vk==='pacum') extra='mm · acumulat '+(PACUM_LAB[pacumPeriode]||pacumPeriode)+' · '+(pacumFont==='qpe'?('estimat pel radar (AEMET) + estacions'+(qpeInfo&&qpeInfo.obs?(' · radar de les '+new Date(qpeInfo.obs).toLocaleString('ca-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})):'')):'interpolació d\'estacions (IDW)');
   c.fillText(extra, x+w/2, by+bh+18*S);
   c.restore();
 }
@@ -1649,24 +2085,29 @@ async function generarImatge(){
   if(typeof html2canvas!=='function'){ alert('No s\'ha pogut carregar la llibreria de captura.'); return; }
   const btn=$('exportar'), old=btn.textContent; btn.disabled=true; btn.textContent='Generant…';
   try{
+    if(selVar.value==='pacum' && $('pacumSurf') && $('pacumSurf').checked){   // assegura la superfície carregada
+      if(pacumFont==='qpe'){ if(!precGrid) await carregaQPE(pacumPeriode); }
+      else if(!precGrid){ calculaPrecGrid(); }
+      actualitzaEscalaPacum();                 // escala estirada al rang real per a l'export
+    }
     const nom=($('incident').value||'').trim();
     const panes = comboActive
       ? [{el:$('map'),mapObj:map,spec:specWithThr(comboActive.a)},{el:$('map2'),mapObj:map2,spec:specWithThr(comboActive.b)}]
       : [{el:$('map'),mapObj:map,spec:especMapaUnic()}];
-    const igBase=el=>el.classList&&(el.classList.contains('leaflet-control-zoom')||el.classList.contains('leaflet-overlay-pane'));
-    const opts={useCORS:true, backgroundColor:'#e8e8e8', scale:2, logging:false, ignoreElements:igBase};
+    const opts={useCORS:true, backgroundColor:'#e8e8e8', scale:2, logging:false,
+      ignoreElements:el=>el.classList&&(el.classList.contains('leaflet-control-zoom')||el.classList.contains('leaflet-overlay-pane'))};
+    // CV: amb radar actiu, el fons es captura SENSE dades i les dades a banda
+    // (transparent), perquè el radar es puga intercalar ENTRE fons i pastilles.
     const radarActiu=$('radarOn') && $('radarOn').checked && radOverlay;
-    if(!radarActiu){
-      for(const p of panes){ p.canvas=await html2canvas(p.el, opts); }
-    }else{
-      // 1a passada: NOMÉS el fons (sense pastilles/barbes) · 2a: NOMÉS les dades
-      // (transparent). Així el radar es pot intercalar ENTRE el fons i les dades.
-      for(const p of panes){
-        p.canvas=await html2canvas(p.el, Object.assign({},opts,{ignoreElements:el=>igBase(el)||(el.classList&&(el.classList.contains('leaflet-marker-pane')||el.classList.contains('leaflet-shadow-pane')||el.classList.contains('leaflet-tooltip-pane')||el.classList.contains('leaflet-popup-pane')))}));
-        const bg=p.el.style.background; p.el.style.background='transparent';
-        try{
-          p.canvasData=await html2canvas(p.el, Object.assign({},opts,{backgroundColor:null,ignoreElements:el=>igBase(el)||(el.classList&&el.classList.contains('leaflet-tile-pane'))}));
-        }finally{ p.el.style.background=bg; }
+    for(const p of panes){
+      const baseOpts = radarActiu
+        ? Object.assign({},opts,{ignoreElements:el=>el.classList&&(el.classList.contains('leaflet-control-zoom')||el.classList.contains('leaflet-overlay-pane')||el.classList.contains('leaflet-marker-pane')||el.classList.contains('leaflet-shadow-pane')||el.classList.contains('leaflet-tooltip-pane')||el.classList.contains('leaflet-popup-pane'))})
+        : opts;
+      p.canvas=await html2canvas(p.el, baseOpts);
+      if(radarActiu || (selVar.value==='pacum' && $('pacumSurf') && $('pacumSurf').checked)){   // dades a part, per posar-les DAMUNT
+        p.markers=await html2canvas(p.el, Object.assign({}, opts, {backgroundColor:null,
+          ignoreElements:el=>el.classList&&(el.classList.contains('leaflet-control-zoom')||el.classList.contains('leaflet-overlay-pane')||el.classList.contains('leaflet-tile-pane')),
+          onclone:docClone=>{ docClone.querySelectorAll('.leaflet-container,.leaflet-pane,.leaflet-tile-container').forEach(el=>{el.style.background='transparent';}); }}));
       }
     }
     const S=2, pad=22*S, gap=18*S, headerH=88*S, legH=66*S, footH=64*S;
@@ -1688,18 +2129,37 @@ async function generarImatge(){
     let x=pad; const mapY=pad+headerH+filtreH;
     for(const p of panes){
       c.drawImage(p.canvas,0,0,p.canvas.width,p.canvas.height, x,mapY,mapW,mapH);
+      // superfície de precipitació acumulada (IDW estacions o QPE radar) — es dibuixa a mà
+      if(selVar.value==='pacum' && $('pacumSurf') && $('pacumSurf').checked && p.mapObj){
+        if(!precGrid && pacumFont==='idw') calculaPrecGrid();
+        if(precGrid){
+          const el=p.el, sxp=mapW/el.clientWidth, syp=mapH/el.clientHeight;
+          const G=precGrid,B=G.bbox,nx=G.nx,ny=G.ny,dlon=(B[1]-B[0])/(nx-1),dlat=(B[3]-B[2])/(ny-1);
+          const pa=p.mapObj.latLngToContainerPoint([B[2],B[0]]), pb=p.mapObj.latLngToContainerPoint([B[2]+dlat,B[0]+dlon]);
+          const cw=Math.abs(pb.x-pa.x)*sxp+1.4, ch=Math.abs(pb.y-pa.y)*syp+1.4;
+          c.save(); c.globalAlpha=0.62;
+          for(let j=0;j<ny;j++){ const lat=B[2]+j*dlat;
+            for(let i=0;i<nx;i++){ const v=G.val[j*nx+i]; if(isNaN(v)||v<0.1) continue;
+              const pt=p.mapObj.latLngToContainerPoint([lat,B[0]+i*dlon]);
+              const X=x+pt.x*sxp, Y=mapY+pt.y*syp;
+              if(X<x-cw||Y<mapY-ch||X>x+mapW+cw||Y>mapY+mapH+ch) continue;
+              c.fillStyle=colorFor('pacum',v); c.fillRect(X-cw/2,Y-ch/2,cw,ch); } }
+          c.restore();
+        }
+      }
       if($('radarOn') && $('radarOn').checked && radOverlay && p.mapObj){   // radar/echotop a la captura
         const img=radOverlay.getElement();
         if(img && img.complete && img.naturalWidth){
           const el=p.el, sxp=mapW/el.clientWidth, syp=mapH/el.clientHeight;
-          const nw=p.mapObj.latLngToContainerPoint([RAD_BOUNDS[1][0],RAD_BOUNDS[0][1]]);
-          const se=p.mapObj.latLngToContainerPoint([RAD_BOUNDS[0][0],RAD_BOUNDS[1][1]]);
+          const rb=radOverlay.getBounds();       // límits reals de la capa (AEMET fix o SMC per frame)
+          const nw=p.mapObj.latLngToContainerPoint([rb.getNorth(),rb.getWest()]);
+          const se=p.mapObj.latLngToContainerPoint([rb.getSouth(),rb.getEast()]);
           const oa=c.globalAlpha; c.globalAlpha=(radOverlay.options.opacity!=null?radOverlay.options.opacity:0.88);
           c.drawImage(img, x+nw.x*sxp, mapY+nw.y*syp, (se.x-nw.x)*sxp, (se.y-nw.y)*syp);
           c.globalAlpha=oa;
         }
       }
-      if(p.canvasData) c.drawImage(p.canvasData,0,0,p.canvasData.width,p.canvasData.height, x,mapY,mapW,mapH);
+      if(p.markers) c.drawImage(p.markers,0,0,p.markers.width,p.markers.height, x,mapY,mapW,mapH);   // dades NÍTIDES damunt (radar/superfície davall)
       const VCexp = ventClickOn ? ventCtx() : null;
       if(VCexp && p.mapObj){                          // fletxes de vent a la captura
         const el=p.el, sxp=mapW/el.clientWidth, syp=mapH/el.clientHeight, VD=VCexp.W, B=VD.bbox;
@@ -1904,8 +2364,32 @@ async function carregar(pass){
 }
 // ---------------- visor de dies antics (arxiu) ----------------
 const ARXIU_URL='https://raw.githubusercontent.com/Javimiroo/mapa-avamet/arxiu/arxiu/';
+const LLAMPS_DIA_URL='https://raw.githubusercontent.com/Javimiroo/mapa-avamet/arxiu/llamps_dia/';   // arxiu diari de llamps (informes)
 let arxiuDies=new Set(), calMes=null;   // dies amb dades + mes mostrat al calendari {y,m}
 function diaLabelLlarg(k){ const p=String(k).split('-'); const d=new Date(+p[0],+p[1]-1,+p[2]); return d.toLocaleDateString('ca-ES',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'}); }
+// selector de variables ARXIVADES sota el calendari (només les que tenen dada eixe dia)
+function renderArxiuVars(){
+  const wrap=$('arxiuVarWrap'), sel=$('arxiuVar'), per=$('arxiuPer'); if(!wrap||!sel) return;
+  if(!reviewMode || !DATA){ wrap.style.display='none'; return; }
+  const disp=[];
+  ORDER.forEach(vk=>{ if(vk==='pacum') return;
+    let te=false; for(const st of DATA.estacions){ if(vk==='barbes'){ if(st.actual&&st.actual.vv!=null){te=true;break;} } else if(getVal(st,vk)!=null){te=true;break;} }
+    if(te) disp.push(vk); });
+  let teQPE=false;                                              // pluja QPE (radar) si eixe dia té QPE arxivat
+  if(qpeDiesList===null){ carregaQPEDies().then(()=>renderArxiuVars()); }
+  else teQPE=(qpeDiesList.indexOf(String(reviewMode).replace(/-/g,''))>=0);
+  const opts=disp.map(vk=>'<option value="'+vk+'"'+(selVar.value===vk?' selected':'')+'>'+VARS[vk].label+'</option>');
+  if(teQPE) opts.push('<option value="pacum"'+(selVar.value==='pacum'?' selected':'')+'>Precipitació QPE (radar)</option>');
+  sel.innerHTML=opts.join('');
+  wrap.style.display= opts.length?'':'none';
+  if(per){ if(selVar.value==='pacum' && teQPE){ per.style.display=''; per.value=(['dia','3d','7d'].indexOf(pacumPeriode)>=0?pacumPeriode:'dia'); } else per.style.display='none'; }
+}
+$('arxiuVar').onchange=()=>{ const v=$('arxiuVar').value;
+  if(v==='pacum'){ pacumFont='qpe'; if($('pacumFont'))$('pacumFont').value='qpe';
+    pacumPeriode=$('arxiuPer').value||'dia'; if($('pacumPer'))$('pacumPer').value=pacumPeriode; $('arxiuPer').style.display='';
+    if(selVar.value!=='pacum') selVar.value='pacum'; selVar.onchange(); }
+  else { $('arxiuPer').style.display='none'; if(selVar.value!==v){ selVar.value=v; selVar.onchange(); } } };
+$('arxiuPer').onchange=()=>{ pacumPeriode=$('arxiuPer').value; if($('pacumPer'))$('pacumPer').value=pacumPeriode; renderLegend(); recarregaPacumQPE(); };
 function claDia(y,m,d){ return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'); }
 function renderCalArxiu(){
   const box=$('calArxiu'); if(!box||!calMes) return;
@@ -2339,6 +2823,15 @@ async function zonaCalcula(){         // dispara el càlcul a partir de la flama
 // ---------------- capa Radar / Echotop (AEMET, tota la península) ----------------
 const RADAR_BASE='https://javimiroo.github.io/radar-arxiu/';
 const RAD_BOUNDS=[[35.5,-9.5],[44.0,4.5]];
+// Echotop del Servei Meteorològic de Catalunya (repo públic echotops-viewer). Ve ja en
+// lat/lon (imatge equirectangular amb límits per frame), s'actualitza cada ~6 min.
+const SMC_BASE='https://pauguarquec.github.io/echotops-viewer/data/png/';
+let smcManifest=null, radIsSMC=false;
+function smcTsToMs(ts){ const y=+ts.slice(0,4),mo=+ts.slice(4,6)-1,d=+ts.slice(6,8),h=+ts.slice(9,11),mi=+ts.slice(11,13); return Date.UTC(y,mo,d,h,mi); }
+function radFmtTs(ts){                        // AEMET "…T…:00Z" o SMC "YYYYMMDD_HHMM"
+  if(/^\d{8}_\d{4}$/.test(ts)) return ts.slice(6,8)+'/'+ts.slice(4,6)+' '+ts.slice(9,11)+':'+ts.slice(11,13);
+  return ts.replace('T',' ').replace(':00Z','');
+}
 function _radMercY(lat){return Math.log(Math.tan(Math.PI/4+lat*Math.PI/360));}
 const _RMN=_radMercY(44.0), _RMS=_radMercY(35.5);
 let radManifest=null, radFrames=[], radOverlay=null, radAnim=null, radWarpCache={}, radTok=0, radLast=-1;
@@ -2362,24 +2855,31 @@ function radUrl(path,cb){
   img.onerror=()=>cb(full);
   img.src=full;
 }
-async function radCarregaManifest(){
-  const inf=$('radarInfo'); if(inf) inf.textContent='carregant…';
-  try{ const r=await fetch(RADAR_BASE+'manifest.json?_='+Date.now(),{cache:'no-store'});
-       radManifest=await r.json(); radConstrueixFrames(); }
-  catch(e){ radManifest=null; if(inf) inf.textContent='error'; }
-}
-function radConstrueixFrames(){
+async function radCarregaManifest(){ return radConstrueixFrames(); }
+async function radConstrueixFrames(){
   radAturaAnim();
+  const inf=$('radarInfo'); if(inf) inf.textContent='carregant…';
   const prod=$('radarProd').value;
-  const dict=(radManifest && (prod==='composit'?radManifest.composit:radManifest.echotop_composit))||{};
-  radFrames=Object.keys(dict).sort().map(ts=>({ts:ts,t:Date.parse(ts),path:dict[ts]}));
+  radIsSMC=(prod==='echotop_smc');
+  try{
+    if(radIsSMC){
+      const r=await fetch(SMC_BASE+'manifest.json?_='+Date.now(),{cache:'no-store'}); smcManifest=await r.json();
+      const ts=(smcManifest&&smcManifest.timestamps)||[];
+      const bnd=(smcManifest&&smcManifest.bounds)||{};
+      radFrames=ts.map(t=>({ts:t,t:smcTsToMs(t),path:SMC_BASE+t+'.png',bounds:bnd[t]||null})).sort((a,b)=>a.t-b.t);
+    } else {
+      const r=await fetch(RADAR_BASE+'manifest.json?_='+Date.now(),{cache:'no-store'}); radManifest=await r.json();
+      const dict=(prod==='composit'?radManifest.composit:radManifest.echotop_composit)||{};
+      radFrames=Object.keys(dict).sort().map(t=>({ts:t,t:Date.parse(t),path:dict[t],bounds:null}));
+    }
+  }catch(e){ if(inf) inf.textContent='error'; radFrames=[]; }
   $('radarBar').style.display=radFrames.length?'block':'none';
   radLast=-1; radSetSliderBounds(); radSync();
 }
 function radSetSliderBounds(){ const s=$('radarFrame'); if(!s)return; const n=radIdxDia().length; s.max=Math.max(0,n-1); }
 function radSetSlider(){ const s=$('radarFrame'); if(s) s.value=radModeK; }
 // carrega (warp + cau) tots els frames del dia perquè escombrar siga instantani
-function radPreloadDia(){ radIdxDia().forEach(i=>{ const f=radFrames[i]; if(f) radUrl(f.path,function(){}); }); }
+function radPreloadDia(){ radIdxDia().forEach(i=>{ const f=radFrames[i]; if(!f)return; if(radIsSMC){ const im=new Image(); im.src=f.path; } else radUrl(f.path,function(){}); }); }
 // salta a un frame del dia per posició (des de la barra); entra en mode echotop si cal
 function radModeGoto(k){
   radAturaAnim();
@@ -2400,13 +2900,22 @@ function radShowFrame(i){
   if(i<0){ if(radOverlay){map.removeLayer(radOverlay);radOverlay=null;} radLast=-1;
     const inf=$('radarInfo'); if(inf) inf.textContent='sense dada a esta hora'; radAltLoaded=false; return; }
   const f=radFrames[i];
+  if(radIsSMC){                                // SMC: imatge lat/lon directa, límits per frame, sense warp ni _alt
+    radAltLoaded=false;
+    if(i===radLast && radOverlay) return;
+    radLast=i; ++radTok;
+    const nou=L.imageOverlay(f.path, f.bounds||RAD_BOUNDS, {opacity:($('radarOpac').value/100),zIndex:350,crossOrigin:'anonymous'}).addTo(map);
+    if(radOverlay) map.removeLayer(radOverlay); radOverlay=nou;
+    const inf=$('radarInfo'); if(inf) inf.textContent=radFmtTs(f.ts)+' UTC · SMC';
+    return;
+  }
   if(radModeOn){ if($('radarProd').value!=='composit') radCarregaAlt(f.path); else radAltLoaded=false; }
   if(i===radLast && radOverlay) return;
   radLast=i; const tok=++radTok;
   radUrl(f.path,url=>{ if(tok!==radTok) return;
     const nou=L.imageOverlay(url,RAD_BOUNDS,{opacity:($('radarOpac').value/100),zIndex:350}).addTo(map);
     if(radOverlay) map.removeLayer(radOverlay); radOverlay=nou; });
-  const inf=$('radarInfo'); if(inf) inf.textContent=f.ts.replace('T',' ').replace(':00Z',' UTC');
+  const inf=$('radarInfo'); if(inf) inf.textContent=radFmtTs(f.ts)+' UTC';
 }
 function radSync(){        // pinta el frame més pròxim a l'hora de la màquina del temps
   if(!$('radarOn').checked || radAnim) return;
@@ -2438,13 +2947,15 @@ function radAnimaToggle(){
   radAnim=setInterval(()=>{ radModeK=(radModeK+1)%radModeIdx.length; radShowFrame(radModeIdx[radModeK]); radSetSlider(); },650);
 }
 function radLleva(){ radAturaAnim(); radModeOn=false; radMeteoHide(false); radAltHide(); if(radOverlay){map.removeLayer(radOverlay);radOverlay=null;} $('radarBar').style.display='none'; radLast=-1; }
-$('radarOn').addEventListener('change',e=>{ if(e.target.checked){ if(!radManifest) radCarregaManifest(); else radConstrueixFrames(); } else radLleva(); });
+$('radarOn').addEventListener('change',e=>{ if(e.target.checked) radConstrueixFrames(); else radLleva(); });
 $('radarProd').addEventListener('change',()=>{ if($('radarOn').checked){ radModeExit(); radConstrueixFrames(); } });
 $('radarPrev').addEventListener('click',()=>radModeStep(-1));
 $('radarNext').addEventListener('click',()=>radModeStep(1));
 $('radarPlay').addEventListener('click',radAnimaToggle);
 $('radarFrame').addEventListener('input',e=>radModeGoto(+e.target.value));   // escombra tot el dia
 $('radarOpac').addEventListener('input',()=>{ if(radOverlay) radOverlay.setOpacity($('radarOpac').value/100); });
+// manté la capa al dia (l'SMC arriba cada ~6 min); no refresca si estàs escombrant o animant
+setInterval(()=>{ if($('radarOn').checked && !radModeOn && !radAnim) radConstrueixFrames(); }, 120000);
 
 // ── alçada del tope al cursor (NOMÉS en mode echotop) ──
 const RAD_ALT={1:'1–2 km',2:'2–3 km',3:'3–4 km',4:'4–5 km',5:'5–6 km',6:'6–7 km',7:'7–8 km',8:'8–10 km',9:'10–12 km',10:'12–14 km',11:'14–16 km',12:'16–20 km',13:'>20 km'};
@@ -2482,7 +2993,7 @@ const EST_KM={1:1.5,2:2.5,3:3.5,4:4.5,5:5.5,6:6.5,7:7.5,8:9,9:11,10:13,11:15,12:
 let estSel=false, estP0=null, estRect=null, estBusy=false, estSerie=[], estBounds=null;
 function estInicia(){
   if(!radFrames.length){ alert('Activa la capa Echotop primer.'); return; }
-  if($('radarProd').value==='composit'){ alert('L\'estudi d\'alçada només va amb el producte Echotop.'); return; }
+  if($('radarProd').value!=='echotop_composit'){ alert('L\'estudi d\'alçada del tope de moment només va amb l\'Echotop AEMET.'); return; }
   if(!radIdxDia().length){ alert('No hi ha frames d\'echotop d\'este dia a l\'arxiu.'); return; }
   if(!radModeOn) radModeEnter();
   estSel=true; estP0=null; if(estRect){ map.removeLayer(estRect); estRect=null; }
@@ -2603,6 +3114,281 @@ async function carregaVent(){
     if(ventLayer&&ventClickOn) ventLayer.redraw();
   }catch(e){}
 }
+// ---------------- capa Llamps (XDDE Meteocat) ----------------
+const LLAMPS_URL='https://raw.githubusercontent.com/Javimiroo/mapa-avamet/dades/llamps.enc';
+let llampsData=null, llampsLayer=null, llampsOn=false;
+async function carregaLlamps(){
+  try{
+    let r=await fetch(LLAMPS_URL+'?_='+Date.now(),{cache:'no-store'}).catch(()=>null);
+    if(!r||!r.ok) r=await fetch('llamps.enc?_='+Date.now(),{cache:'no-store'}).catch(()=>null);
+    if(!r||!r.ok) return;
+    const p=await desxifra(await r.json(), PASS);
+    const arr=(p.llamps||[]).map(x=>({t:Date.parse(x.t),lat:x.lat,lon:x.lon,cg:x.cg,kA:x.kA})).filter(x=>isFinite(x.t));
+    llampsData={t:arr, generat:p.generat};
+    if(llampsLayer&&llampsOn) llampsLayer.redraw();
+    llampsInfoAct();
+    if(typeof calculaConats==='function') calculaConats();   // actualitza el comptador de conats
+  }catch(e){}
+}
+const LLAMPS_FRESC_MIN=15;                    // minuts que es consideren "acabats de caure" (plena intensitat)
+let llampsAnim=null, llampsPlayT=0;
+function llampsRefT(){ if(llampsAnim) return llampsPlayT;
+  return (typeof timeT!=='undefined'&&timeT!=null)?timeT:((toDate(DATA&&DATA.generat)||new Date()).getTime()); }
+function llampsWinMs(){ return (parseFloat($('llampsWin').value)||3)*3600000; }
+function llampHoraColor(t){ const h=new Date(t).getUTCHours(); return 'hsl('+((h*35)%360)+',85%,55%)'; }  // color per hora
+function llampsInfoAct(){ const inf=$('llampsInfo'); if(!inf)return; if(!llampsData){inf.textContent='—';return;}
+  const T=llampsRefT(), w=llampsWinMs(); let n=0,cg=0; llampsData.t.forEach(x=>{ if(x.t<=T&&x.t>T-w){ n++; if(x.cg)cg++; } });
+  const hh=new Date(T).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});
+  inf.innerHTML='<b>'+n+'</b> llamps · '+cg+' núvol-terra'+(llampsAnim?(' · passada '+hh):''); }
+const LlampsLayer=L.Layer.extend({
+  onAdd:function(m){this._m=m;const c=this._c=L.DomUtil.create('canvas','');c.style.position='absolute';c.style.pointerEvents='none';
+    c.style.zIndex=450;                          // per damunt del radar (imageOverlay zIndex 350) i del vent/pluja
+    const s=m.getSize();c.width=s.x;c.height=s.y;m.getPanes().overlayPane.appendChild(c);
+    m.on('moveend zoomend resize',this._rs,this);this._rs();},
+  onRemove:function(m){L.DomUtil.remove(this._c);m.off('moveend zoomend resize',this._rs,this);},
+  redraw:function(){if(this._m)this._rs();},
+  _rs:function(){const m=this._m,s=m.getSize(),tl=m.containerPointToLayerPoint([0,0]);L.DomUtil.setPosition(this._c,tl);this._c.width=s.x;this._c.height=s.y;this._dr();},
+  _dr:function(){const ctx=this._c.getContext('2d'),m=this._m,s=m.getSize();ctx.clearRect(0,0,s.x,s.y);
+    if(!llampsOn||!llampsData)return;
+    const T=llampsRefT(), w=llampsWinMs(), arr=llampsData.t, perHora=$('llampsHora').checked, wmin=w/60000;
+    for(let i=0;i<arr.length;i++){ const x=arr[i]; if(x.t>T||x.t<=T-w)continue;
+      const p=m.latLngToContainerPoint([x.lat,x.lon]); if(p.x<-8||p.y<-8||p.x>s.x+8||p.y>s.y+8)continue;
+      const agem=(T-x.t)/60000;                        // antiguitat en minuts
+      const fresc=agem<=LLAMPS_FRESC_MIN;              // acabat de caure -> ple, sense esvair
+      const al=fresc?1:Math.max(0.22,1-(agem-LLAMPS_FRESC_MIN)/Math.max(1,wmin-LLAMPS_FRESC_MIN)*0.78);
+      const base=perHora?llampHoraColor(x.t):(x.cg?'rgb(225,20,20)':'rgb(40,130,255)');
+      const col=base.replace('rgb(','rgba(').replace('hsl(','hsla(').replace(')',(base.indexOf('hsl')>=0?',':',')+al+')');
+      if(fresc){ ctx.shadowColor='rgba(255,255,255,.9)'; ctx.shadowBlur=6; } else { ctx.shadowBlur=0; }
+      if(x.cg){ ctx.strokeStyle=col; ctx.lineWidth=fresc?2.4:1.7; const r=fresc?4.4:3.1;
+        ctx.beginPath();ctx.moveTo(p.x-r,p.y);ctx.lineTo(p.x+r,p.y);ctx.moveTo(p.x,p.y-r);ctx.lineTo(p.x,p.y+r);ctx.stroke(); }
+      else { ctx.fillStyle=col; ctx.beginPath();ctx.arc(p.x,p.y,fresc?3.2:2.1,0,6.283);ctx.fill(); }
+    }
+    ctx.shadowBlur=0;
+  }
+});
+function llampsPlayAtura(){ if(llampsAnim){clearInterval(llampsAnim);llampsAnim=null;} const b=$('llampsPlay'); if(b)b.textContent='▶ Passada';
+  if(typeof radMeteoHide==='function') radMeteoHide(false); if(llampsLayer)llampsLayer.redraw(); llampsInfoAct(); }
+function llampsPlayToggle(){
+  if(llampsAnim){ llampsPlayAtura(); return; }
+  if(!llampsData||!llampsData.t.length){ alert('No hi ha llamps carregats (activa la capa).'); return; }
+  if(!llampsOn){ $('llampsOn').checked=true; llampsOn=true; if(!llampsLayer){llampsLayer=new LlampsLayer();} llampsLayer.addTo(map); }
+  if(typeof radMeteoHide==='function') radMeteoHide(true);      // amaga la resta: només llamps
+  const arr=llampsData.t, t0=arr[0].t, t1=arr[arr.length-1].t;
+  if(t1<=t0){ llampsPlayT=t1; llampsLayer.redraw(); llampsInfoAct(); return; }   // un sol instant: res a animar
+  const pas=Math.max(3*60000, (t1-t0)/80);            // ~80 passos (mín 3 min per pas)
+  llampsPlayT=t0; $('llampsPlay').textContent='⏸ Aturar';
+  llampsLayer.redraw(); llampsInfoAct();
+  llampsAnim=setInterval(()=>{
+    llampsPlayT+=pas;
+    if(llampsPlayT>=t1){ llampsPlayT=t1; llampsLayer.redraw(); llampsInfoAct(); llampsPlayAtura(); return; }
+    llampsLayer.redraw(); llampsInfoAct();
+  },220);
+}
+$('llampsOn').addEventListener('change',e=>{ llampsOn=e.target.checked;
+  if(llampsOn){ if(!llampsData) carregaLlamps(); if(!llampsLayer) llampsLayer=new LlampsLayer(); llampsLayer.addTo(map); llampsLayer.redraw(); llampsInfoAct(); }
+  else { llampsPlayAtura(); if(llampsLayer) map.removeLayer(llampsLayer); } });
+$('llampsWin').addEventListener('change',()=>{ if(llampsLayer&&llampsOn) llampsLayer.redraw(); llampsInfoAct(); });
+$('llampsHora').addEventListener('change',()=>{ if(llampsLayer&&llampsOn) llampsLayer.redraw(); });
+$('llampsPlay').addEventListener('click',llampsPlayToggle);
+setInterval(()=>{ if(llampsOn && !llampsAnim) carregaLlamps(); }, 120000);
+
+// ---------------- Conats per llamp sec (CG + pluja radar QPE < 2mm/6h, agrupats per zona) ----------------
+const CONAT_MM=2, CONAT_HORES=6, CONAT_KM=2;
+let conatsZones=[];
+async function obteQPEGrid(period){          // torna la graella QPE (cau o baixa) SENSE tocar el mapa
+  if(qpeCache[period]) return qpeCache[period];
+  if(!PASS) return null;
+  try{ const {G}=await _baixaQPE(period); return G; }catch(e){ return null; }
+}
+function pluAtRaw(G,lat,lon){                  // mm al punt · NaN si NO hi ha dada (fora de cobertura/Catalunya)
+  if(!G) return NaN; const B=G.bbox; if(lon<B[0]||lon>B[1]||lat<B[2]||lat>B[3]) return NaN;
+  const i=Math.min(G.nx-1,Math.max(0,Math.round((lon-B[0])/(B[1]-B[0])*(G.nx-1))));
+  const j=Math.min(G.ny-1,Math.max(0,Math.round((lat-B[2])/(B[3]-B[2])*(G.ny-1))));
+  return G.val[j*G.nx+i];
+}
+function pluAt(G,lat,lon){ const v=pluAtRaw(G,lat,lon); return isNaN(v)?0:v; }
+let conatsLayer=null, conatsObert=false;
+async function calculaConats(){
+  if(!llampsData) await carregaLlamps();
+  const badge=$('conatsBadge'), G=await obteQPEGrid('6h');   // pluja QPE (radar+estacions), 6h
+  if(!llampsData || !G){ conatsZones=[]; if(badge) badge.style.display='none'; conatsDibuixaZones(); return; }
+  const ests=(DATA?DATA.estacions:[]).filter(s=>s.lat!=null&&s.lon!=null&&xarxaActiva(s));
+  const cosL=Math.cos(41.7*Math.PI/180), CAT2=0.30*0.30;      // "dins Catalunya" = estació a <~33 km
+  const dinsCat=(lat,lon)=>{ let m=1e9; for(let i=0;i<ests.length;i++){ const dl=lat-ests[i].lat, dg=(lon-ests[i].lon)*cosL, d=dl*dl+dg*dg; if(d<m){m=d; if(m<=CAT2) return true;} } return m<=CAT2; };
+  const Tref=llampsRefT(), T0=Tref-CONAT_HORES*3600000;
+  const secs=llampsData.t.filter(x=>{ if(!x.cg || x.t<=T0 || x.t>Tref) return false;
+    if(!dinsCat(x.lat,x.lon)) return false;              // només Catalunya (cobertura d'estacions)
+    return pluAt(G,x.lat,x.lon) < CONAT_MM; });          // sec segons QPE (NaN=0=sec)
+  const dlat=CONAT_KM/111, buckets={};                    // agrupació per graella ~2 km
+  secs.forEach(x=>{ const dlon=CONAT_KM/(111*Math.cos(x.lat*Math.PI/180));
+    const key=Math.round(x.lat/dlat)+'|'+Math.round(x.lon/dlon); (buckets[key]=buckets[key]||[]).push(x); });
+  conatsZones=Object.values(buckets).map(g=>{ let la=0,lo=0,tmin=Infinity,tmax=-Infinity,kA=0;
+    g.forEach(x=>{ la+=x.lat; lo+=x.lon; if(x.t<tmin)tmin=x.t; if(x.t>tmax)tmax=x.t; if(Math.abs(x.kA||0)>Math.abs(kA))kA=x.kA||0; });
+    return {lat:la/g.length,lon:lo/g.length,n:g.length,tmin,tmax,kA,strikes:g}; })
+    .sort((a,b)=>Math.abs(b.kA)-Math.abs(a.kA));
+  if(badge){ if(conatsZones.length){ badge.style.display='block'; $('conatsN').textContent=conatsZones.length; } else badge.style.display='none'; }
+  conatsDibuixaZones();
+}
+function _conatRadi(z){ return 8+Math.min(12,z.n); }
+function conatsDibuixaZones(){                 // cercles de cada zona al mapa (només amb el panell obert)
+  if(!conatsLayer) conatsLayer=L.layerGroup();
+  conatsLayer.clearLayers();
+  if(!conatsObert || !conatsZones.length){ if(map.hasLayer(conatsLayer)) map.removeLayer(conatsLayer); return; }
+  if(!map.hasLayer(conatsLayer)) conatsLayer.addTo(map);
+  conatsZones.forEach((z,k)=>{ const c=L.circleMarker([z.lat,z.lon],{radius:_conatRadi(z),color:'#c81010',weight:2,fillColor:'#c81010',fillOpacity:.22});
+    c.bindTooltip((k+1)+' · '+z.n+' llamps',{direction:'top'});
+    c.on('click',()=>{ map.setView([z.lat,z.lon],11); conatDetall(z); });
+    c.addTo(conatsLayer); z._circle=c; });
+}
+function conatHover(k,on){ const z=conatsZones[k]; if(!z||!z._circle)return;
+  z._circle.setStyle(on?{radius:18,weight:3,fillOpacity:.5}:{radius:_conatRadi(z),weight:2,fillOpacity:.22}); if(on) z._circle.bringToFront(); }
+function renderConats(){
+  const box=$('conatsList'); if(!box)return;
+  if(!conatsZones.length){ box.innerHTML='<div class="muted" style="font-size:12px">Cap conat: cap llamp núvol-terra sec a les últimes 6 h.</div>'; return; }
+  const q=ms=>new Date(ms).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});
+  box.innerHTML=conatsZones.map((z,k)=>'<div class="conatRow" data-k="'+k+'" style="display:flex;gap:8px;align-items:center;border-bottom:1px solid #1e293b;padding:6px 2px;cursor:pointer">'
+    +'<span style="width:22px;height:22px;border-radius:50%;background:#c81010;color:#fff;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto">'+(k+1)+'</span>'
+    +'<div style="flex:1;font-size:12px"><b>'+z.lat.toFixed(3)+', '+z.lon.toFixed(3)+'</b> · '+z.n+' llamps · '+q(z.tmin)+(z.n>1?('–'+q(z.tmax)):'')+' UTC'+(z.kA?(' · '+Math.round(Math.abs(z.kA))+' kA'):'')+'</div>'
+    +'<button class="btn small conatDet" data-k="'+k+'" title="Detall imprimible">🖨</button></div>').join('');
+}
+async function obreConats(){ conatsObert=true; await calculaConats(); renderConats(); $('conatsPanel').style.display='flex'; conatsDibuixaZones(); }
+function tancaConats(){ conatsObert=false; $('conatsPanel').style.display='none'; conatsDibuixaZones(); }
+$('conatsBadge').addEventListener('click',()=>{ if($('conatsPanel').style.display==='flex') tancaConats(); else obreConats(); });
+$('conatsClose').addEventListener('click',tancaConats);
+$('conatsList').addEventListener('mouseover',e=>{ const r=e.target.closest('.conatRow'); if(r) conatHover(+r.dataset.k,true); });
+$('conatsList').addEventListener('mouseout', e=>{ const r=e.target.closest('.conatRow'); if(r) conatHover(+r.dataset.k,false); });
+$('conatsList').addEventListener('click',e=>{ const r=e.target.closest('.conatRow'); if(!r)return; const z=conatsZones[+r.dataset.k]; if(!z)return;
+  map.setView([z.lat,z.lon],11);                         // clic a la fila -> centra al mapa (per veure'l)
+  if(e.target.closest('.conatDet')) conatDetall(z); });  // botó 🖨 -> detall imprimible
+// ---- foto de satèl·lit (Esri World Imagery) centrada al llamp ----
+function _txlon(lon,z){return (lon+180)/360*Math.pow(2,z);}
+function _tylat(lat,z){const r=lat*Math.PI/180;return (1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*Math.pow(2,z);}
+async function satelliteImg(lat,lon){
+  try{ const z=13,N=3,TS=256,cx=_txlon(lon,z),cy=_tylat(lat,z),tx0=Math.floor(cx)-1,ty0=Math.floor(cy)-1;
+    const cv=document.createElement('canvas'); cv.width=N*TS; cv.height=N*TS; const c=cv.getContext('2d');
+    const loads=[]; for(let dy=0;dy<N;dy++)for(let dx=0;dx<N;dx++){ const tx=tx0+dx,ty=ty0+dy;
+      loads.push(new Promise(res=>{ const im=new Image(); im.crossOrigin='anonymous';
+        im.onload=()=>{ try{c.drawImage(im,dx*TS,dy*TS);}catch(e){} res(); }; im.onerror=()=>res();
+        im.src='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/'+z+'/'+ty+'/'+tx; })); }
+    await Promise.all(loads);
+    const px=(cx-tx0)*TS, py=(cy-ty0)*TS;                 // marca del llamp
+    c.strokeStyle='#ff2020'; c.lineWidth=3; c.beginPath(); c.arc(px,py,11,0,7); c.stroke();
+    c.beginPath(); c.moveTo(px-17,py); c.lineTo(px+17,py); c.moveTo(px,py-17); c.lineTo(px,py+17); c.stroke();
+    return cv.toDataURL('image/png');
+  }catch(e){ return null; }
+}
+// ===== INFORMES DIARIS DE LLAMPS (mapa CG per hora · QPE · conats + llista, imprimible/PDF) =====
+const INF_BBOX=[0.10,3.35,40.50,42.90];         // Catalunya (lon0,lon1,lat0,lat1)
+async function infTileMap(bbox,wPx,drawFn){
+  const [lo0,lo1,la0,la1]=bbox, TS=256;
+  let z=Math.round(Math.log2(wPx*360/((lo1-lo0)*TS))); z=Math.max(6,Math.min(11,z));
+  const tx0=Math.floor(_txlon(lo0,z)), tx1=Math.floor(_txlon(lo1,z)), ty0=Math.floor(_tylat(la1,z)), ty1=Math.floor(_tylat(la0,z));
+  const cv=document.createElement('canvas'); cv.width=(tx1-tx0+1)*TS; cv.height=(ty1-ty0+1)*TS; const c=cv.getContext('2d');
+  c.fillStyle='#0b0f14'; c.fillRect(0,0,cv.width,cv.height);
+  const loads=[]; for(let ty=ty0;ty<=ty1;ty++)for(let tx=tx0;tx<=tx1;tx++){ const dx=(tx-tx0)*TS,dy=(ty-ty0)*TS;
+    loads.push(new Promise(res=>{ const im=new Image(); im.crossOrigin='anonymous'; im.onload=()=>{try{c.drawImage(im,dx,dy);}catch(e){}res();}; im.onerror=()=>res();
+      im.src='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/'+z+'/'+ty+'/'+tx; })); }
+  await Promise.all(loads);
+  const proj=(lat,lon)=>[(_txlon(lon,z)-tx0)*TS,(_tylat(lat,z)-ty0)*TS];
+  if(drawFn) drawFn(c,proj,z);
+  const p0=proj(la1,lo0), p1=proj(la0,lo1);
+  const rx=Math.max(0,Math.floor(p0[0])), ry=Math.max(0,Math.floor(p0[1])), rw=Math.min(cv.width-rx,Math.ceil(p1[0]-p0[0])), rh=Math.min(cv.height-ry,Math.ceil(p1[1]-p0[1]));
+  const out=document.createElement('canvas'); out.width=rw; out.height=rh; out.getContext('2d').drawImage(cv,rx,ry,rw,rh,0,0,rw,rh);
+  return out.toDataURL('image/png');
+}
+async function carregaLlampsDia(dk){
+  try{ const r=await fetch(LLAMPS_DIA_URL+dk+'.enc?_='+Date.now(),{cache:'no-store'}); if(!r.ok) return [];
+    const d=await desxifra(await r.json(),PASS);
+    return (d.llamps||[]).map(x=>({t:(typeof x.t==='number'?x.t:new Date(x.t).getTime()),lat:x.lat,lon:x.lon,cg:!!x.cg,kA:x.kA}));
+  }catch(e){ return []; }
+}
+function infConats(strikes,Gday){
+  const secs=strikes.filter(x=>x.cg && Gday && pluAt(Gday,x.lat,x.lon)<CONAT_MM);
+  const buckets={};
+  secs.forEach(x=>{ const dlat=CONAT_KM/111, dlon=CONAT_KM/(111*Math.cos(x.lat*Math.PI/180));
+    const k=Math.round(x.lat/dlat)+'_'+Math.round(x.lon/dlon); (buckets[k]||(buckets[k]=[])).push(x); });
+  return Object.values(buckets).map(g=>{ let la=0,lo=0,tmin=Infinity,tmax=-Infinity,kA=0;
+    g.forEach(x=>{la+=x.lat;lo+=x.lon;tmin=Math.min(tmin,x.t);tmax=Math.max(tmax,x.t);if(Math.abs(x.kA||0)>Math.abs(kA))kA=x.kA||0;});
+    return {lat:la/g.length,lon:lo/g.length,n:g.length,tmin,tmax,kA};
+  }).sort((a,b)=>Math.abs(b.kA)-Math.abs(a.kA));
+}
+async function generaInforme(dk){
+  $('infInfo').textContent='Generant informe… (pot tardar uns segons)';
+  const strikes=await carregaLlampsDia(dk), cg=strikes.filter(x=>x.cg), key=dk.replace(/-/g,'');
+  const Gday=await obteQPEDia(key), R3=await qpeSumaDies(key,3), R7=await qpeSumaDies(key,7);
+  const G3=R3?R3.grid:null, G7=R7?R7.grid:null, zones=infConats(strikes,Gday);
+  const mapaA=await infTileMap(INF_BBOX,1000,(c,proj)=>{ cg.forEach(s=>{ const p=proj(s.lat,s.lon); c.fillStyle=llampHoraColor(s.t); c.beginPath(); c.arc(p[0],p[1],3.5,0,7); c.fill(); }); });
+  const mapaB=await infTileMap(INF_BBOX,1000,(c,proj)=>{
+    if(Gday){ const B=Gday.bbox,dlon=(B[1]-B[0])/(Gday.nx-1),dlat=(B[3]-B[2])/(Gday.ny-1);
+      const a=proj(B[2],B[0]),b=proj(B[2]+dlat,B[0]+dlon), cw=Math.abs(b[0]-a[0])+1, ch=Math.abs(b[1]-a[1])+1;
+      c.globalAlpha=.6; for(let j=0;j<Gday.ny;j++)for(let i=0;i<Gday.nx;i++){ const v=Gday.val[j*Gday.nx+i]; if(isNaN(v)||v<0.2)continue; const p=proj(B[2]+j*dlat,B[0]+i*dlon); c.fillStyle=colorFor('pacum',v); c.fillRect(p[0]-cw/2,p[1]-ch/2,cw,ch); } c.globalAlpha=1; }
+    cg.forEach(s=>{ const p=proj(s.lat,s.lon); c.strokeStyle='#ffef60'; c.lineWidth=1.2; c.beginPath(); c.arc(p[0],p[1],2.6,0,7); c.stroke(); }); });
+  const mapaC=await infTileMap(INF_BBOX,1000,(c,proj)=>{ cg.forEach(s=>{ const p=proj(s.lat,s.lon); c.fillStyle='rgba(255,120,120,.5)'; c.beginPath(); c.arc(p[0],p[1],2,0,7); c.fill(); });
+    zones.forEach(z=>{ const p=proj(z.lat,z.lon); c.strokeStyle='#ff2020'; c.lineWidth=2.5; c.beginPath(); c.arc(p[0],p[1],10+Math.min(18,z.n*2),0,7); c.stroke(); }); });
+  const q=ms=>new Date(ms).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});
+  const files=zones.map((z,i)=>{ const pd=Gday?pluAt(Gday,z.lat,z.lon):NaN,p3=G3?pluAt(G3,z.lat,z.lon):NaN,p7=G7?pluAt(G7,z.lat,z.lon):NaN;
+    return `<tr><td>${i+1}</td><td>${z.lat.toFixed(4)}, ${z.lon.toFixed(4)}</td><td>${q(z.tmin)}${z.n>1?('–'+q(z.tmax)):''}</td><td style="text-align:center">${z.n}</td><td style="text-align:right">${Math.round(Math.abs(z.kA))}</td><td style="text-align:right">${isFinite(pd)?pd.toFixed(1):'n/d'}</td><td style="text-align:right">${isFinite(p3)?p3.toFixed(1):'n/d'}</td><td style="text-align:right">${isFinite(p7)?p7.toFixed(1):'n/d'}</td></tr>`; }).join('');
+  const w=window.open('','_blank'); if(!w){ $('infInfo').textContent='Permet les finestres emergents.'; return; }
+  const dl=diaLabelLlarg(dk);
+  w.document.write('<!doctype html><html lang="ca"><head><meta charset="utf-8"><title>Informe llamps '+dk+'</title>'
+    +'<style>body{font:13px system-ui;margin:22px;color:#111}h1{font-size:20px;margin:0 0 2px}h2{font-size:14px;margin:18px 0 6px}.sub{color:#555;margin:0 0 10px}img{width:100%;max-width:900px;border:1px solid #ccc;border-radius:6px}table{border-collapse:collapse;font-size:12px;margin-top:6px;width:100%;max-width:900px}th,td{border:1px solid #ddd;padding:3px 6px}th{background:#f3f4f6;text-align:left}button{margin:14px 0;padding:9px 16px;background:#c81010;color:#fff;border:none;border-radius:6px;cursor:pointer}@media print{button{display:none}}</style></head><body>'
+    +'<h1>Informe diari de llamps</h1><p class="sub">'+dl+' · '+cg.length+' núvol-terra (de '+strikes.length+' descàrregues) · '+zones.length+' possibles conats · Bombers GRAF</p>'
+    +'<button onclick="window.print()">🖨 Imprimir / Desar PDF</button>'
+    +'<h2>1 · Llamps núvol-terra per hora</h2><img src="'+mapaA+'">'
+    +'<h2>2 · Llamps sobre pluja del dia (QPE radar+estacions)</h2><img src="'+mapaB+'">'
+    +'<h2>3 · Possibles conats (CG en zona seca &lt; '+CONAT_MM+' mm)</h2><img src="'+mapaC+'">'
+    +'<h2>Possibles conats (agrupats per zona)</h2>'
+    +(zones.length?('<table><tr><th>#</th><th>Coordenades</th><th>Hora</th><th>CG</th><th>kA</th><th>Pluja dia</th><th>3 dies</th><th>7 dies</th></tr>'+files+'</table>'):'<p class="sub">Cap conat: cap llamp núvol-terra en zona seca eixe dia.</p>')
+    +'<p class="sub" style="font-size:10px;margin-top:14px">Generat '+new Date().toLocaleString('ca-ES')+' · Llamps XDDE (Meteocat) · Pluja QPE (AEMET+estacions) · base Esri</p></body></html>');
+  w.document.close();
+  $('infInfo').textContent='Informe generat: '+cg.length+' CG · '+zones.length+' conats.';
+}
+$('infBtn').onclick=async()=>{ const p=$('infPanel'), show=(p.style.display==='none'); p.style.display=show?'block':'none';
+  if(show && !$('infDia').options.length){ try{ const r=await fetch(LLAMPS_DIA_URL+'index.json?_='+Date.now(),{cache:'no-store'}); const j=await r.json();
+    const dies=(j.dies||[]).slice().reverse(); dies.forEach(dk=>{ const o=document.createElement('option'); o.value=dk; o.textContent=diaLabelLlarg(dk); $('infDia').appendChild(o); });
+    if(!dies.length) $('infInfo').textContent='Encara no hi ha dies de llamps arxivats (s\'omplirà des d\'avui).'; }catch(e){} } };
+$('infGen').onclick=()=>{ const dk=$('infDia').value; if(!dk){ $('infInfo').textContent='Tria un dia.'; return; } if(!PASS){ $('infInfo').textContent='Cal entrar amb contrasenya.'; return; } generaInforme(dk); };
+function graficaConatImg(st,Tref){
+  try{ if(typeof Chart==='undefined')return null; const h=st.historic||[], T0=Tref-12*3600000;
+    const rows=h.filter(r=>{const dd=toDate(r.t); return dd && dd.getTime()>=T0 && dd.getTime()<=Tref+1800000;});
+    if(!rows.length)return null;
+    const labels=rows.map(r=>{const dd=toDate(r.t); return dd?dd.toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'}):'';});
+    const cv=document.createElement('canvas'); cv.width=760; cv.height=300;
+    const ch=new Chart(cv.getContext('2d'),{type:'line',data:{labels,datasets:[
+      {label:'Temp (°C)',data:rows.map(r=>r.ta),borderColor:'#e0562d',tension:.2,pointRadius:0},
+      {label:'HR (%)',data:rows.map(r=>r.hr),borderColor:'#2b8cff',tension:.2,pointRadius:0},
+      {label:'Vent (km/h)',data:rows.map(r=>r.vv),borderColor:'#2aa84a',tension:.2,pointRadius:0}]},
+      options:{animation:false,responsive:false,plugins:{title:{display:true,text:'HR / Temp / Vent — últimes 12 h · '+(st.nom||'')}}}});
+    const url=cv.toDataURL('image/png'); ch.destroy(); return url;
+  }catch(e){ return null; }
+}
+async function conatDetall(z){
+  const G6=await obteQPEGrid('6h'), G24=await obteQPEGrid('24h'), G7=await obteQPEGrid('7d');
+  const p6=G6?pluAt(G6,z.lat,z.lon):NaN, p24=G24?pluAt(G24,z.lat,z.lon):NaN, p7=G7?pluAt(G7,z.lat,z.lon):NaN;
+  let best=null,bd=Infinity; (DATA?DATA.estacions:[]).forEach(st=>{ if(st.lat==null||st.lon==null)return;
+    const d=haversineKm(L.latLng(z.lat,z.lon),L.latLng(st.lat,st.lon)); if(d<bd){bd=d;best=st;} });
+  const img=best?graficaConatImg(best,z.tmax):null;
+  const sat=await satelliteImg(z.lat,z.lon);
+  const q=ms=>new Date(ms).toLocaleString('ca-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const w=window.open('','_blank'); if(!w){ alert('Permet les finestres emergents per obrir el detall imprimible.'); return; }
+  const html='<!doctype html><html lang="ca"><head><meta charset="utf-8"><title>Conat per llamp — '+z.lat.toFixed(4)+', '+z.lon.toFixed(4)+'</title>'
+    +'<style>body{font:14px system-ui;margin:24px;color:#111}h1{font-size:19px;color:#c81010}table{border-collapse:collapse;margin:12px 0}td{padding:4px 12px 4px 0;vertical-align:top}.k{color:#555}.big{color:#c81010;font-weight:700;font-size:16px}img{max-width:100%;border:1px solid #ccc;border-radius:6px;margin-top:12px}.sat{max-width:420px}button{margin-top:16px;padding:9px 16px;background:#c81010;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px}@media print{button{display:none}}</style></head><body>'
+    +'<h1>⚠ Possible conat per llamp sec</h1>'
+    +(sat?('<img class="sat" src="'+sat+'" alt="satèl·lit"><br>'):'')
+    +'<table>'
+    +'<tr><td class="k">Posició</td><td><b>'+z.lat.toFixed(4)+', '+z.lon.toFixed(4)+'</b></td></tr>'
+    +'<tr><td class="k">Hora (UTC)</td><td>'+q(z.tmin)+(z.n>1?(' – '+q(z.tmax)):'')+'</td></tr>'
+    +'<tr><td class="k">Llamps núvol-terra a la zona</td><td class="big">'+z.n+'</td></tr>'
+    +'<tr><td class="k">Intensitat màx</td><td>'+(z.kA?Math.round(Math.abs(z.kA))+' kA':'—')+'</td></tr>'
+    +'<tr><td class="k">Pluja (radar QPE) al punt</td><td>6 h: <b>'+(isFinite(p6)?p6.toFixed(1):'n/d')+' mm</b> &nbsp;·&nbsp; 24 h: '+(isFinite(p24)?p24.toFixed(1)+' mm':'n/d')+' &nbsp;·&nbsp; 7 dies: '+(isFinite(p7)?p7.toFixed(1)+' mm':'n/d')+'</td></tr>'
+    +'<tr><td class="k">Estació més propera</td><td>'+(best?(best.nom+' ('+bd.toFixed(1)+' km)'):'—')+'</td></tr>'
+    +'</table>'+(img?('<img src="'+img+'">'):'<p class="k">Sense dades meteo de l\'estació per a la gràfica.</p>')
+    +'<p class="k" style="font-size:11px;margin-top:16px">Generat '+new Date().toLocaleString('ca-ES')+' · Bombers GRAF · Llamps XDDE (Meteocat) + pluja radar QPE (AEMET+estacions) · base satèl·lit Esri</p>'
+    +'<button onclick="window.print()">🖨 Imprimir</button></body></html>';
+  w.document.write(html); w.document.close();
+}
+setInterval(()=>{ if(PASS) calculaConats(); }, 5*60000);      // revisa conats cada 5 min
+setTimeout(()=>{ if(PASS) calculaConats(); }, 9000);          // primera revisió després de carregar
 function ventColor(s){const st=[[0,[95,160,255]],[2,[0,180,255]],[4,[0,215,110]],[6,[200,225,0]],[8,[255,150,0]],[10,[235,0,0]]];
   if(s<=0)return'rgb(40,70,170)'; if(s>=10)return'rgb(200,0,0)';
   for(let m=1;m<st.length;m++){if(s<=st[m][0]){const a=st[m-1],b=st[m],t=(s-a[0])/(b[0]-a[0]);const c=a[1].map((v,q)=>Math.round(v+(b[1][q]-v)*t));return'rgb('+c[0]+','+c[1]+','+c[2]+')';}}return'rgb(200,0,0)';}
@@ -2654,25 +3440,30 @@ const VentLayer=L.Layer.extend({
 // ---- superfície interpolada (IDW) de precipitació acumulada ----
 let precLayer=null, precGrid=null;
 const PREC_BBOX=[0.05,3.40,40.45,42.95];   // lon0,lon1,lat0,lat1 (Catalunya + marge)
-function calculaPrecGrid(){
-  precGrid=null; if(!DATA) return;
+// IDW millorat: potència 3 (menys borrós, pics més marcats), radi d'influència ~33 km i
+// TALL per proximitat ~15 km -> NOMÉS pinta on hi ha una estació prou a prop (no tot el mapa).
+function idwGrid(period){
+  if(!DATA) return null;
   const pts=[];
   DATA.estacions.forEach(st=>{ if(st.lat==null||st.lon==null||!xarxaActiva(st)||amagaVella(st)) return;
-    const v=getVal(st,'pacum'); if(v==null||isNaN(v)) return; pts.push([st.lat,st.lon,v]); });
-  if(pts.length<3) return;
-  const B=PREC_BBOX, nx=120, ny=104, val=new Float32Array(nx*ny); val.fill(NaN);
-  const R=0.42, R2=R*R, cosL=Math.cos(41.7*Math.PI/180);   // IDW radi ~40 km, potència 2
+    const p=(st.actual&&st.actual.pacum)?st.actual.pacum[period]:null;
+    if(p==null||isNaN(p)) return; pts.push([st.lat,st.lon,+p]); });
+  if(pts.length<3) return null;
+  const B=PREC_BBOX, nx=140, ny=120, val=new Float32Array(nx*ny); val.fill(NaN);
+  const R2=0.30*0.30, RN2=0.14*0.14, cosL=Math.cos(41.7*Math.PI/180);
   for(let j=0;j<ny;j++){ const lat=B[2]+(B[3]-B[2])*j/(ny-1);
     for(let i=0;i<nx;i++){ const lon=B[0]+(B[1]-B[0])*i/(nx-1);
-      let num=0,den=0,near=false;
+      let num=0,den=0,dmin=1e9;
       for(let k=0;k<pts.length;k++){ const dlat=pts[k][0]-lat, dlon=(pts[k][1]-lon)*cosL, d2=dlat*dlat+dlon*dlon;
-        if(d2>R2) continue; near=true;
-        if(d2<1e-9){ num=pts[k][2]; den=1; break; }
-        const w=1/d2; num+=w*pts[k][2]; den+=w; }
-      if(near&&den>0) val[j*nx+i]=num/den;
+        if(d2<dmin)dmin=d2;
+        if(d2>R2) continue;
+        if(d2<1e-9){ num=pts[k][2]; den=1; dmin=0; break; }
+        const w=1/(d2*Math.sqrt(d2)); num+=w*pts[k][2]; den+=w; }   // 1/d^3
+      if(den>0 && dmin<=RN2) val[j*nx+i]=num/den;                    // només amb estació a <~15 km
     } }
-  precGrid={bbox:B,nx,ny,val};
+  return {bbox:B,nx,ny,val};
 }
+function calculaPrecGrid(){ precGrid=idwGrid(pacumPeriode); }
 const PrecipLayer=L.Layer.extend({
   onAdd:function(m){this._m=m;const c=this._c=L.DomUtil.create('canvas','prec-cv');c.style.position='absolute';c.style.pointerEvents='none';
     const s=m.getSize();c.width=s.x;c.height=s.y;m.getPanes().overlayPane.appendChild(c);
@@ -2698,7 +3489,7 @@ const PrecipLayer=L.Layer.extend({
 });
 function actualitzaPrecLayer(){
   const on=(selVar.value==='pacum' && $('pacumSurf') && $('pacumSurf').checked);
-  if(on){ if(!precLayer) precLayer=new PrecipLayer(); precLayer.addTo(map); if(baseLayer)baseLayer.bringToBack(); precGrid=null; precLayer.redraw(); }
+  if(on){ if(!precLayer) precLayer=new PrecipLayer(); precLayer.addTo(map); if(baseLayer)baseLayer.bringToBack(); if(pacumFont==='idw') precGrid=null; precLayer.redraw(); }   // IDW recalcula la graella al draw; QPE la conserva (si no, s'esborrava la superfície just carregada)
   else if(precLayer){ map.removeLayer(precLayer); }
 }
 function ventCardinal(d){return['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'][Math.round(d/22.5)%16];}
@@ -3923,6 +4714,61 @@ async function desaCorreguda(){
     if(a){ focsCache=a; focsLocalDesa(a); const g=a.find(x=>String(x.id)===String(focActualId)); if(g) focActualRuns=g.runs||[]; focsRender(); }
   }catch(e){}
 }
+
+// ---- PESTANYES + REORGANITZACIÓ del menú ----
+(function(){
+  const panel=document.getElementById('panel'), app=document.getElementById('app');
+  if(!panel||!app) return;
+  const card=(txt)=>{ let r=null; panel.querySelectorAll(':scope > .card').forEach(c=>{ const h=c.querySelector('h2'); if(!r && h && h.textContent.indexOf(txt)>=0) r=c; }); return r; };
+
+  // 1) FLOTANTS sobre el mapa (fora del menú): dalt = Cerca + Generar imatge · baix-dreta = Fons
+  const fTop=document.createElement('div'); fTop.id='floatTop';
+  const fFons=document.createElement('div'); fFons.id='floatFons';
+  app.appendChild(fTop); app.appendChild(fFons);
+  const cercaWrap=document.getElementById('cercaWrap');
+  const exportBtn=document.getElementById('exportar'), expWrap=exportBtn?exportBtn.parentElement:null;
+  if(cercaWrap) fTop.appendChild(cercaWrap);
+  if(exportBtn) fTop.appendChild(exportBtn);
+  if(expWrap) expWrap.style.display='none';                 // amaga el bloc buit (només queda el text d'ajuda)
+  const basemap=document.getElementById('basemap');
+  if(basemap){ const l=document.createElement('span'); l.className='muted'; l.textContent='Fons'; l.style.cssText='font-size:11px;margin-right:6px'; fFons.appendChild(l); fFons.appendChild(basemap); }
+
+  // 2) COMPRIMEIX Radar / Camp de vents / Llamps (afegint el plegat als que no en tenien)
+  ['Camp de vents','Llamps'].forEach(t=>{ const c=card(t); if(c){ c.classList.add('coll','collapsed'); const h=c.querySelector('h2'); if(h) h.addEventListener('click',()=>c.classList.toggle('collapsed')); } });
+  const rad=card('Radar'); if(rad) rad.classList.add('collapsed');
+  ['Incendi','Dia històric'].forEach(t=>{ const c=card(t); if(c) c.classList.remove('collapsed'); });   // pestanyes Incendi i Arxiu: desplegades
+
+  // 3) PESTANYA de cada secció
+  const set=(txt,tab)=>{ const c=card(txt); if(c) c.dataset.tab=tab; return c; };
+  ['Variable al mapa','Radar','Camp de vents','Llamps','Xarxes'].forEach(t=>set(t,'temps'));
+  ['Llindar','Filtre combinat','Hores consecutives',"Comptador d'hores",'Dies sense recuperació','Altitud','Mapes combinats'].forEach(t=>set(t,'analisi'));
+  set('Incendi','incendi'); set('Dia històric','arxiu');
+  set('Opcions','hidden'); set('Dades','all');
+  const cc=card('Cerca un poble'); if(cc) cc.dataset.tab='hidden';
+  const cf=card('Fons del mapa'); if(cf) cf.dataset.tab='hidden';
+
+  // 4) ORDRE dins del menú (= ordre al DOM). Dades l'últim -> sempre a baix de tot.
+  ['Variable al mapa','Radar','Camp de vents','Llamps','Xarxes',
+   'Llindar','Filtre combinat','Hores consecutives',"Comptador d'hores",'Dies sense recuperació','Altitud','Mapes combinats',
+   'Incendi','Dia històric','Opcions','Cerca un poble','Fons del mapa','Dades']
+   .forEach(t=>{ const c=card(t); if(c) panel.appendChild(c); });
+
+  // 5) PESTANYES (Dades i 'all' es mostren sempre; 'hidden' mai)
+  function mostraTab(t){
+    // en canviar de pestanya: neteja les anàlisis actives; i si tornes a Temps real, ix de l'arxiu
+    try{
+      if(typeof netejaAnalisi==='function') netejaAnalisi();
+      if(t==='temps' && typeof reviewMode!=='undefined' && reviewMode && typeof tornaDirecte==='function') tornaDirecte();
+      else if(typeof render==='function') render();
+    }catch(e){}
+    panel.querySelectorAll(':scope > .card').forEach(c=>{ const dt=c.dataset.tab;
+      c.style.display=(dt===t||dt==='all')?'':'none'; });
+    document.querySelectorAll('#tabs .tab').forEach(b=>b.classList.toggle('actiu', b.dataset.t===t));
+    try{ panel.scrollTop=0; }catch(e){}
+  }
+  document.querySelectorAll('#tabs .tab').forEach(b=> b.addEventListener('click',()=>mostraTab(b.dataset.t)) );
+  window.mostraTab=mostraTab; mostraTab('temps');
+})();
 </script>
 </body>
 </html>
