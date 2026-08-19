@@ -1437,6 +1437,7 @@ function renderRec(){
   if(!recData) return;
   const esT=recMode.mode==='total';
   let maxn=0; for(const k in recData){ const v=recVal(recData[k]); if(v>maxn) maxn=v; }
+  recMode.max=maxn;                              // per a la llegenda de l'exportació
   let shown=0;
   DATA.estacions.forEach(st=>{
     if(st.lat==null||st.lon==null||!xarxaActiva(st)||amagaVella(st)||!altitudOk(st))return;
@@ -1645,6 +1646,7 @@ function specLabel(sp){
   if(sp.k==='barbs') base='Barbes de vent';
   else if(sp.k==='streak') base = sp.v==='hr' ? ('Hores humitat < '+sp.val+'%') : ('Hores temp > '+sp.val+'°');
   else if(sp.k==='count') base = 'Hores '+VARS[sp.v].label+' '+sp.op+' '+sp.val+(VARS[sp.v].unit||'')+' · últimes '+sp.hores+' h';
+  else if(sp.k==='rec') base = (sp.mode==='total'?'Dies sense recuperació (últims 30 dies)':'Ratxa de dies sense recuperació');
   else base=VARS[sp.v].label;
   return base + (sp.altnom ? (' · '+sp.altnom) : '');
 }
@@ -1967,6 +1969,7 @@ function especMapaUnic(){
   if(selVar.value==='barbes') return {k:'barbs'};
   if(streakMode) return {k:'streak',v:streakMode.v,op:streakMode.op,val:streakMode.val,hide0:streakMode.op==='<',ref:streakMode.ref||12};
   if(countMode) return {k:'count',v:countMode.v,op:countMode.op,val:countMode.val,hores:countMode.hores};
+  if(recMode) return {k:'rec',thr:recMode.thr,mode:recMode.mode,max:recMode.max||1};
   return {k:'var',v:selVar.value};
 }
 function dibuixaLogoBombers(c,x,y,h){
@@ -2014,6 +2017,18 @@ function dibuixaLlegendaExport(c, spec, x, y, w, S){
     c.fillStyle='#555'; c.font=(11*S)+'px Arial';
     const lab = spec.k==='count' ? ('hores que compleixen (de les últimes '+N+' h) · número = hores') : ('hores consecutives · número = hores');
     c.fillText(lab, x+w/2, by+bh+18*S);
+    c.restore(); return;
+  }
+  if(spec.k==='rec'){                           // dies sense recuperació d'humitat (barra de calor per dies)
+    const N=Math.max(1,spec.max||1), by=y+22*S, bw=w*0.82, bh=14*S, bx=x+(w-bw)/2;
+    const g=c.createLinearGradient(bx,0,bx+bw,0);
+    [0,0.2,0.4,0.6,0.8,1].forEach(f=>g.addColorStop(f, diesColor(Math.round(f*N),N)));
+    c.fillStyle=g; c.fillRect(bx,by,bw,bh);
+    c.strokeStyle='#777'; c.lineWidth=S; c.strokeRect(bx,by,bw,bh);
+    c.fillStyle='#111'; c.font=(11*S)+'px Arial';
+    [0,Math.round(N/2),N].forEach((v,i)=>c.fillText(v, bx+bw*(i/2), by+bh+3*S));
+    c.fillStyle='#555'; c.font=(11*S)+'px Arial';
+    c.fillText((spec.mode==='total'?'dies sense recuperació dels últims 30':'dies consecutius sense recuperació')+' · matinada 02–06 h < '+spec.thr+'% · número = dies', x+w/2, by+bh+18*S);
     c.restore(); return;
   }
   const by=y+22*S, isBarb=spec.k==='barbs', vk=isBarb?'vv':spec.v;
@@ -2068,6 +2083,7 @@ function descripcioFiltres(){
   const parts=[];
   if(timeT!=null){ parts.push('Vista històrica: '+fmtTemps(timeT)); }
   if(countMode){ const v=countMode.v; parts.push('Hores amb '+VARS[v].label+' '+countMode.op+' '+countMode.val+(VARS[v].unit?(' '+VARS[v].unit):'')+' · finestra últimes '+countMode.hores+' h'); }
+  if(recMode){ parts.push((recMode.mode==='total'?'Dies sense recuperació (últims 30)':'Ratxa de dies sense recuperació')+' · HR matinada (02–06 h) < '+recMode.thr+'%'); }
   if(activeFilter){
     if(activeFilter.type==='single'){ const v=activeFilter.v; parts.push(VARS[v].label+' '+activeFilter.op+' '+activeFilter.val+(VARS[v].unit?(' '+VARS[v].unit):'')); }
     else parts.push(activeFilter.cs.map(c=>VARS[c.v].label+' '+c.op+' '+c.val).join(' i '));
