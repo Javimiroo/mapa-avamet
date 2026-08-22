@@ -50,6 +50,24 @@ jobs:
             echo "encara no hi ha branca 'arxiu': uso la caché de main com a llavor"
           fi
 
+      # Recupera l'ÚLTIMA PUBLICACIÓ (branca 'dades') com a fitxer local, perquè
+      # l'acumulador d'històric no depenga del 'raw' de GitHub. El 22-08-2026 un
+      # 'connection reset' del raw va fer que el fetcher no llegira el previ i
+      # va reescriure l'històric de zero (es van perdre les hores del matí).
+      - name: Recupera la publicació anterior (branca 'dades')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if git clone --branch dades --depth 1 \
+               "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" _dades 2>/dev/null; then
+            [ -f _dades/dades_privat.enc ] && cp _dades/dades_privat.enc dades_privat.enc
+            [ -f _dades/vent_privat.enc ] && cp _dades/vent_privat.enc vent_privat.enc
+            rm -rf _dades
+            echo "publicació anterior recuperada: $(wc -c < dades_privat.enc 2>/dev/null || echo 0) bytes de dades, $(wc -c < vent_privat.enc 2>/dev/null || echo 0) de vent"
+          else
+            echo "encara no hi ha branca 'dades' (primera execució)"
+          fi
+
       - name: Baixa AVAMET i xifra
         env:
           MAPA_PASS: ${{ secrets.MAPA_PASS }}

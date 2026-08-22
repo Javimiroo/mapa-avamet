@@ -229,24 +229,60 @@ def desxifrar(blob, password):
     return json.loads(AESGCM(key).decrypt(iv, ct, None).decode("utf-8"))
 
 
-def carrega_estacions_previ():
-    """{idema: estació completa} de la PUBLICACIÓ ACTUAL (o del fitxer local si hi és)."""
-    for origen in ("url", "file"):
+def _baixa_previ_url(url, intents=3):
+    """Baixa un .enc publicat, amb reintents (el 'raw' de GitHub talla la connexió
+    de tant en tant). HTTP 404 = encara no publicat (primera execució): torna None
+    sense error. Si tots els intents fallen, torna a llançar l'última excepció."""
+    ultima = None
+    for i in range(intents):
+        if i:
+            time.sleep(4 * i)                       # 4 s, 8 s entre reintents
         try:
-            if origen == "url":
-                req = urllib.request.Request(DADES_PREV_URL + "?_=" + str(int(time.time())),
-                                             headers={"User-Agent": UA})
-                blob = json.loads(urllib.request.urlopen(req, timeout=30, context=_SSL).read())
-            else:
-                if not os.path.exists(OUT_FILE):
-                    continue
-                with open(OUT_FILE, encoding="utf-8") as f:
-                    blob = json.load(f)
+            req = urllib.request.Request(url + "?_=" + str(int(time.time())) + str(i),
+                                         headers={"User-Agent": UA})
+            return json.loads(urllib.request.urlopen(req, timeout=30, context=_SSL).read())
+        except urllib.error.HTTPError as ex:
+            if ex.code == 404:
+                return None                         # branca/fitxer encara no existeix
+            ultima = ex
+        except Exception as ex:  # noqa
+            ultima = ex
+        print("  avis: previ (url, intent %d/%d) no llegit (%s)" % (i + 1, intents, str(ultima)[:80]))
+    raise ultima
+
+
+def carrega_estacions_previ():
+    """{idema: estació completa} de la publicació anterior.
+
+    PRIMER el fitxer local (el workflow clona la branca 'dades' abans d'executar
+    açò, així que normalment hi és) i, si no, la URL publicada amb reintents.
+    Si la publicació EXISTEIX però no es pot llegir, S'AVORTA el run sencer:
+    val més perdre una actualització (el següent run ho reintenta en 30 min) que
+    començar l'històric de zero i esborrar els 3 dies vius, com va passar el
+    22-08-2026 amb un 'connection reset' del raw de GitHub."""
+    if os.path.exists(OUT_FILE):
+        try:
+            with open(OUT_FILE, encoding="utf-8") as f:
+                blob = json.load(f)
             prev = desxifrar(blob, PASSWORD)
+            print("  previ: fitxer local (%d estacions)" % len(prev.get("estacions", [])))
             return {e["idema"]: e for e in prev.get("estacions", [])}
         except Exception as ex:  # noqa
-            print("  avis: previ (%s) no llegit (%s)" % (origen, str(ex)[:80]))
-    return {}
+            print("  avis: previ (fitxer local) no llegit (%s); provant la URL" % str(ex)[:80])
+    try:
+        blob = _baixa_previ_url(DADES_PREV_URL)
+    except Exception as ex:  # noqa
+        raise SystemExit("ERROR: no s'ha pogut llegir la publicació anterior (%s). "
+                         "S'avorta per NO esborrar l'històric viu; el pròxim run ho reintentarà." % str(ex)[:80])
+    if blob is None:
+        print("  previ: encara no hi ha publicació (primera execució)")
+        return {}
+    try:
+        prev = desxifrar(blob, PASSWORD)
+        return {e["idema"]: e for e in prev.get("estacions", [])}
+    except Exception as ex:  # noqa
+        raise SystemExit("ERROR: la publicació anterior no es pot desxifrar (%s). "
+                         "S'avorta per NO esborrar l'històric viu." % str(ex)[:80])
 
 
 # ============================ pluja oficial del dia tancat ============================
@@ -615,13 +651,16 @@ def main():
         try:
             from camp_vents import escriu_vent
             prev_vent = None
-            try:                      # payload publicat (per al càlcul INCREMENTAL)
-                req = urllib.request.Request(VENT_PREV_URL + "?_=" + str(int(time.time())),
-                                             headers={"User-Agent": UA})
-                prev_vent = desxifrar(json.loads(urllib.request.urlopen(req, timeout=30, context=_SSL).read()),
-                                      PASSWORD)
+            try:                      # payload publicat (per al càlcul INCREMENTAL):
+                if os.path.exists("vent_privat.enc"):     # primer el fitxer local (clonat de la branca 'dades')
+                    with open("vent_privat.enc", encoding="utf-8") as f:
+                        prev_vent = desxifrar(json.load(f), PASSWORD)
+                else:                                     # si no, la URL amb reintents
+                    blob_v = _baixa_previ_url(VENT_PREV_URL)
+                    if blob_v is not None:
+                        prev_vent = desxifrar(blob_v, PASSWORD)
             except Exception as ex:  # noqa
-                print("  avis: vent previ no llegit (%s)" % str(ex)[:70])
+                print("  avis: vent previ no llegit (%s); es regeneren les hores de hui" % str(ex)[:70])
             nv = escriu_vent(estacions, PASSWORD, prev=prev_vent)
             print("OK -> vent_privat.enc  (camp de vents, %d fotogrames)" % nv)
         except Exception as ex:       # mai ha de bloquejar l'actualització operativa
