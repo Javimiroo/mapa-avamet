@@ -142,31 +142,37 @@ def comprova(estdir, fwd, vel, ang, nod, hv, rows, cols):
         return None, None
     difs = []          # factors de velocitat (unitats)
     derr = []          # errors de direcció (graus)
+    # cada fitxer pot dur VÀRIES estacions (format antic: totes en un únic
+    # estacions.csv, una fila per estació) — es comproven totes les files
     for fn in glob.glob(os.path.join(estdir, "*.csv")):
         try:
             linies = open(fn, encoding="utf-8").read().splitlines()
-            if len(linies) < 2:
-                continue
-            c = [x.strip().strip('"') for x in linies[1].split(",")]
-            nomest = c[0]
-            lat, lon, sp_obs, dir_obs = float(c[3]), float(c[4]), float(c[7]), float(c[9])
-            x, y = fwd.transform(lon, lat)
-            cc = int((x - hv["xllcorner"]) / hv["cellsize"])
-            rr = int(rows - 1 - (y - hv["yllcorner"]) / hv["cellsize"])
-            if not (0 <= rr < rows and 0 <= cc < cols):
-                continue
-            v = vel[rr, cc]; a = ang[rr, cc]
-            if v == nod or a == nod:
-                continue
-            if sp_obs >= 0.5:
-                difs.append((v * MPH) / sp_obs)
-            if sp_obs >= VEL_MIN_DIR:
-                d = abs((float(a) - dir_obs + 180.0) % 360.0 - 180.0)
-                derr.append(d)
-                print("  direcció %-28s obs %3d° · camp %3d° · dif %3d°"
-                      % (nomest[:28], round(dir_obs), round(float(a)), round(d)))
         except Exception:
             continue
+        for linia in linies[1:]:
+            try:
+                c = [x.strip().strip('"') for x in linia.split(",")]
+                if len(c) < 10:
+                    continue
+                nomest = c[0]
+                lat, lon, sp_obs, dir_obs = float(c[3]), float(c[4]), float(c[7]), float(c[9])
+                x, y = fwd.transform(lon, lat)
+                cc = int((x - hv["xllcorner"]) / hv["cellsize"])
+                rr = int(rows - 1 - (y - hv["yllcorner"]) / hv["cellsize"])
+                if not (0 <= rr < rows and 0 <= cc < cols):
+                    continue
+                v = vel[rr, cc]; a = ang[rr, cc]
+                if v == nod or a == nod:
+                    continue
+                if sp_obs >= 0.5:
+                    difs.append((v * MPH) / sp_obs)
+                if sp_obs >= VEL_MIN_DIR:
+                    d = abs((float(a) - dir_obs + 180.0) % 360.0 - 180.0)
+                    derr.append(d)
+                    print("  direcció %-28s obs %3d° · camp %3d° · dif %3d°"
+                          % (nomest[:28], round(dir_obs), round(float(a)), round(d)))
+            except Exception:
+                continue
     if not difs and not derr:
         return None, None
     avis = None
