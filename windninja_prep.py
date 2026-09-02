@@ -113,17 +113,23 @@ def escriu_dem_utm(big, transform, bbox, path, res_m=50):
 
 
 # ------------------------------------------------------------------ estacions
-# Capçalera del format ANTIC de WindNinja (apszValidHeader1 a wxStation.h):
-# 15 columnes, SENSE hora, i TOTES les estacions com a files d'un únic fitxer.
-# El format "nou" (16a columna date_time) activa el mode de sèrie temporal, que
-# exigeix un fitxer per estació + manifest i DESCARTA en silenci les estacions
-# sense lectura en l'instant exacte del càlcul: el camp acabava obeint una sola
-# estació (incendis del Saler, 28-08 i 02-09-2026).
+# COM VOL WINDNINJA (3.7.2, la imatge docker) MÚLTIPLES ESTACIONS — verificat
+# executant el binari real i llegint el seu codi font (src/ninja/cli.cpp):
+#   * wx_station_filename ha d'apuntar a un fitxer LLISTA (manifest) amb la
+#     capçalera "Recent_Station_File_List," (dades actuals, sense hora) o
+#     "Station_File_List," (sèrie temporal amb hora + start/stop al cfg),
+#     seguida d'una línia per fitxer d'estació (ruta relativa al manifest).
+#   * CADA estació va en un fitxer propi de 16 columnes; l'última ES DIU
+#     "date_time" (amb guió baix!) i va BUIDA en mode dades actuals.
+# El que fèiem abans (directori de fitxers per estació, columna "datetime")
+# feia que OGR obrira NOMÉS el primer fitxer: el camp obeïa una sola estació
+# i eixia homogeni (incendis del Saler, 28-08 i 02-09-2026).
 HDR = ["Station_Name", "Coord_Sys(PROJCS,GEOGCS)", "Datum(WGS84,NAD83,NAD27)",
        "Lat/YCoord", "Lon/XCoord", "Height", "Height_Units(meters,feet)",
        "Speed", "Speed_Units(mph,kph,mps,kts)", "Direction(degrees)",
        "Temperature", "Temperature_Units(F,C)", "Cloud_Cover(%)",
-       "Radius_of_Influence", "Radius_of_Influence_Units(miles,feet,meters,km)"]
+       "Radius_of_Influence", "Radius_of_Influence_Units(miles,feet,meters,km)",
+       "date_time"]
 
 
 def _num(v, f=1.0):
@@ -186,8 +192,10 @@ def estacions_csv(bbox, outdir, meta_path="meteocat_estacions.json"):
             dtiso = t_vv
         tmax = max(tmax or dtiso, dtiso)
         nom = (m.get("nom") or codi).split(" - ")[0].replace(",", "")
-        _escriu_csv_estacio(outdir, codi, nom, m["lat"], m["lon"], sp, dd, tt, dtiso)
+        _escriu_csv_estacio(outdir, codi, nom, m["lat"], m["lon"], sp, dd, tt)
         n += 1
+    if n:
+        escriu_llista(outdir)
     print("  estacions: %d CSV a %s (última obs. %s)" % (n, outdir, tmax))
     return n, tmax
 
@@ -249,14 +257,22 @@ def escriu_proves(out, mesh, dem_src, n_est, dtiso):
 
 
 def cfg_punts(dtiso=None):
-    """Inicialització per estacions amb el format ANTIC (un únic estacions.csv,
-    sense temps): WindNinja llig i usa TOTES les files. El mode de sèrie
-    temporal d'abans (fitxer per estació + finestra start/stop) descartava en
-    silenci les estacions sense lectura en l'instant exacte i el camp acabava
-    obeint-ne una de sola. dtiso queda com a informatiu (no cal per al càlcul)."""
-    return ("initialization_method = pointInitialization\n"
-            "wx_station_filename = /data/estacions/estacions.csv\n"
-            "match_points = true\n")
+    """Inicialització per estacions via MANIFEST (llista.csv): és l'única via
+    d'esta versió de WindNinja per usar TOTES les estacions alhora (verificat
+    amb el binari: les 8 del Saler ixen al 'Stations matching check').
+    dtiso=None -> mode dades actuals (sense finestra temporal);
+    dtiso donat -> mode sèrie temporal (previsió): start=stop=dtiso, 1 pas."""
+    cfg = ("initialization_method = pointInitialization\n"
+           "wx_station_filename = /data/estacions/llista.csv\n"
+           "match_points = true\n"
+           "time_zone = UTC\n")
+    if dtiso:
+        d = datetime.strptime(dtiso[:16], "%Y-%m-%dT%H:%M")
+        t = (d.year, d.month, d.day, d.hour, d.minute)
+        cfg += ("start_year = %d\nstart_month = %d\nstart_day = %d\nstart_hour = %d\nstart_minute = %d\n"
+                "stop_year = %d\nstop_month = %d\nstop_day = %d\nstop_hour = %d\nstop_minute = %d\n"
+                "number_time_steps = 1\n" % (t + t))
+    return cfg
 
 
 def escriu_zona(out, mesh, dem_src, n_est, dtiso):
@@ -271,7 +287,7 @@ def escriu_zona(out, mesh, dem_src, n_est, dtiso):
         shutil.rmtree(est)
     shutil.copytree(os.path.join(out, "estacions"), est)
     with open(os.path.join(d, "run.cfg"), "w", encoding="utf-8") as f:
-        f.write(BASE_CFG.format(mesh=mesh) + cfg_punts(dtiso))
+        f.write(BASE_CFG.format(mesh=mesh) + cfg_punts())   # dades actuals: sense finestra temporal
     print("  zona preparada: %s (%d estacions, obs. %s)" % (d, n_est, dtiso))
     return d
 
@@ -322,20 +338,30 @@ def _fint_iso(t):
 
 
 def _escriu_csv_estacio(outdir, codi, nom, lat, lon, sp_ms, dd, ta, dtiso=None, cloud=0):
-    """Afig UNA FILA a l'únic outdir/estacions.csv (format antic: totes les
-    estacions juntes, sense hora — així WindNinja les usa TOTES). codi i dtiso
-    es mantenen a la crida per compatibilitat, però ja no s'escriuen."""
+    """Un fitxer PER estació (com exigeix WindNinja per al format amb date_time).
+    dtiso=None -> date_time BUIT (mode 'dades actuals', sense lògica temporal);
+    dtiso donat -> mode sèrie temporal (previsió). Després d'escriure-les totes,
+    cal cridar escriu_llista() perquè WindNinja les trobe TOTES."""
     def q(s):
         return '"' + str(s) + '"'
     row = [nom, "GEOGCS", "WGS84", "%.5f" % lat, "%.5f" % lon, "10", "meters",
            "%.1f" % sp_ms, "mps", "%d" % round(dd), "%.1f" % ta, "C",
-           "%d" % int(round(max(0, min(100, cloud)))), "-1", "km"]
-    path = os.path.join(outdir, "estacions.csv")
-    nou = not os.path.exists(path)
-    with open(path, "a", encoding="utf-8", newline="\n") as f:
-        if nou:
-            f.write(",".join(q(h) for h in HDR) + "\n")
+           "%d" % int(round(max(0, min(100, cloud)))), "-1", "km", dtiso or ""]
+    with open(os.path.join(outdir, "%s.csv" % codi), "w", encoding="utf-8", newline="\n") as f:
+        f.write(",".join(q(h) for h in HDR) + "\n")
         f.write(",".join(q(c) for c in row) + "\n")
+
+
+def escriu_llista(outdir, serie=False):
+    """Escriu el MANIFEST outdir/llista.csv que WindNinja necessita per usar
+    TOTES les estacions: capçalera 'Recent_Station_File_List,' (dades actuals)
+    o 'Station_File_List,' (sèrie temporal), i una línia per fitxer d'estació."""
+    fitxers = sorted(fn for fn in os.listdir(outdir)
+                     if fn.endswith(".csv") and fn != "llista.csv")
+    cap = "Station_File_List," if serie else "Recent_Station_File_List,"
+    with open(os.path.join(outdir, "llista.csv"), "w", encoding="utf-8", newline="\n") as f:
+        f.write(cap + "\n" + "\n".join(fitxers) + "\n")
+    return len(fitxers)
 
 
 def estacions_aemet_csv(bbox, outdir, password):
@@ -352,12 +378,9 @@ def estacions_aemet_csv(bbox, outdir, password):
     for fn in os.listdir(outdir):
         if fn.endswith(".csv"):
             os.remove(os.path.join(outdir, fn))
-    # 1a passada: validar i trobar l'hora més recent. 2a: escriure TOTES les
-    # estacions amb EIXA hora. Si cada CSV porta la seua pròpia hora de lectura,
-    # WindNinja (mode sèrie temporal, un sol instant) DESCARTA en silenci les que
-    # no tenen dada en l'instant exacte del càlcul i el camp acaba obeint una
-    # única estació (vist a l'incendi del Saler, 28-08-2026: 6 dins, 1 usada).
-    valides = []
+    # un fitxer per estació amb date_time BUIT (mode 'dades actuals' de
+    # WindNinja: usa totes les estacions, sense lògica temporal) + manifest
+    n = 0
     tmax = None
     for e in ests:
         a = e.get("actual") or {}
@@ -365,16 +388,14 @@ def estacions_aemet_csv(bbox, outdir, password):
         dtiso = _fint_iso(a.get("fint"))
         if vv is None or dv is None or not dtiso:
             continue
-        valides.append(e)
-        tmax = max(tmax or dtiso, dtiso)
-    n = 0
-    for e in valides:
-        a = e["actual"]
         ta = a.get("ta") if a.get("ta") is not None else 20.0
         nom = (e.get("nom") or e.get("idema")).split(" - ")[0].replace(",", "")
-        _escriu_csv_estacio(outdir, e["idema"], nom, e["lat"], e["lon"], a["vv"] / 3.6, a["dv"], ta, tmax)
+        _escriu_csv_estacio(outdir, e["idema"], nom, e["lat"], e["lon"], a["vv"] / 3.6, a["dv"], ta)
+        tmax = max(tmax or dtiso, dtiso)
         n += 1
-    print("  estacions AVAMET (publicació) dins del bbox: %d -> estacions.csv únic (obs més recent %s)" % (n, tmax))
+    if n:
+        escriu_llista(outdir)
+    print("  estacions AVAMET (publicació) dins del bbox: %d + manifest llista.csv (obs més recent %s)" % (n, tmax))
     return n, tmax
 
 
@@ -451,8 +472,7 @@ def estacions_quadrants(bbox, outdir, password, dmax_km):
     for fn in os.listdir(outdir):
         if fn.endswith(".csv"):
             os.remove(os.path.join(outdir, fn))
-    # totes amb l'hora més recent (si no, WindNinja descarta les que no tenen
-    # lectura en l'instant exacte del càlcul — vegeu estacions_aemet_csv)
+    # un fitxer per estació amb date_time buit (mode 'dades actuals') + manifest
     tmax = max(_fint_iso(triades[q][1]["actual"].get("fint")) for q in triades)
     punts = []
     for q in sorted(triades):
@@ -460,10 +480,11 @@ def estacions_quadrants(bbox, outdir, password, dmax_km):
         a = e["actual"]
         ta = a.get("ta") if a.get("ta") is not None else 20.0
         nom = (e.get("nom") or e.get("idema")).split(" - ")[0].replace(",", "")
-        _escriu_csv_estacio(outdir, e["idema"], nom, e["lat"], e["lon"], a["vv"] / 3.6, a["dv"], ta, tmax)
+        _escriu_csv_estacio(outdir, e["idema"], nom, e["lat"], e["lon"], a["vv"] / 3.6, a["dv"], ta)
         punts.append((e["lon"], e["lat"]))
         print("  quadrant %s: %s a %.1f km (%.0f km/h, %d°, obs %s)"
               % (QUADRANTS[q], nom[:24], dkm, a["vv"], round(float(a["dv"])), _fint_iso(a.get("fint"))))
+    escriu_llista(outdir)
     return len(punts), tmax, punts
 
 
@@ -512,15 +533,10 @@ def escriu_previsio(out, mesh, dem_src, punts, hora_iso, diurn=False):
         nuv = 0 if nuv in (None, "") else float(nuv)
         _escriu_csv_estacio(est, "P%d" % (i + 1), "prev%d" % (i + 1),
                             float(p["lat"]), float(p["lon"]), vel / 3.6, dire, ta, hora_iso, nuv)
+    escriu_llista(est, serie=True)      # manifest de sèrie temporal (hora vàlida)
     cfg = BASE_CFG.format(mesh=mesh) + cfg_punts(hora_iso)
     if diurn:
-        # el format antic no porta hora: el sol per als vents tèrmics es dóna
-        # amb les claus year/month/day/hour/minute (hora vàlida de la previsió)
-        d0 = datetime.strptime(hora_iso[:16], "%Y-%m-%dT%H:%M")
-        cfg += ("diurnal_winds = true\n"
-                "time_zone = UTC\n"
-                "year = %d\nmonth = %d\nday = %d\nhour = %d\nminute = %d\n"
-                % (d0.year, d0.month, d0.day, d0.hour, d0.minute))
+        cfg += "diurnal_winds = true\n"     # l'hora solar ix de start/stop (cfg_punts)
     with open(os.path.join(d, "run.cfg"), "w", encoding="utf-8") as f:
         f.write(cfg)
     print("  PREVISIÓ: %d punts virtuals, hora %s, diürn=%s" % (len(punts), hora_iso, diurn))
