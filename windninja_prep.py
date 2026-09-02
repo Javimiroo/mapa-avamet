@@ -384,6 +384,73 @@ def vent_representatiu(bbox, password=None):
     return (a["vv"] / 3.6, float(a["dv"]), dtiso, nom, 111.0 * dist(e))
 
 
+QUADRANTS = ("N", "E", "S", "O")
+
+
+def dmax_pel_relleu(dem_path):
+    """Límit de distància per a les estacions de FORA de la caixa, segons el relleu:
+    com més accidentat el terreny, menys representativa és una estació llunyana.
+        relleu (p98-p2) < 300 m -> 20 km (plana)
+        300-700 m               -> 15 km
+        > 700 m                 -> 10 km (muntanya)"""
+    try:
+        with rasterio.open(dem_path) as d:
+            z = d.read(1).astype(float)
+        z = z[np.isfinite(z)]
+        relleu = float(np.percentile(z, 98) - np.percentile(z, 2))
+    except Exception as ex:  # noqa
+        print("  avis: relleu no calculat (%s); uso 15 km" % str(ex)[:60])
+        return 15.0
+    dmax = 20.0 if relleu < 300 else (15.0 if relleu < 700 else 10.0)
+    print("  relleu de la caixa: %d m (p98-p2) -> límit de %d km per a estacions de fora"
+          % (round(relleu), round(dmax)))
+    return dmax
+
+
+def estacions_quadrants(bbox, outdir, password, dmax_km):
+    """Sense CAP estació dins de la caixa: agafa la MÉS PRÒXIMA de cada quadrant
+    (N, E, S, O respecte del centre de la caixa) fins a dmax_km, perquè l'entrada
+    mostrege el vent de tot el voltant i no la casualitat d'una sola estació.
+    Retorna (n, dtiso_max, [(lon, lat), ...] de les triades)."""
+    lon0, lat0, lon1, lat1 = bbox
+    cx, cy = 0.5 * (lon0 + lon1), 0.5 * (lat0 + lat1)
+    triades = {}
+    for e in _estacions_publicades(password):
+        a = e.get("actual") or {}
+        if e.get("lat") is None or e.get("lon") is None:
+            continue
+        if a.get("vv") is None or a.get("dv") is None or not _fint_iso(a.get("fint")):
+            continue
+        dx = (e["lon"] - cx) * math.cos(math.radians(cy))
+        dy = e["lat"] - cy
+        dkm = 111.0 * math.hypot(dx, dy)
+        if dkm > dmax_km:
+            continue
+        q = int(((math.degrees(math.atan2(dx, dy)) + 45.0) % 360.0) // 90.0)   # 0=N 1=E 2=S 3=O
+        if q not in triades or dkm < triades[q][0]:
+            triades[q] = (dkm, e)
+    if not triades:
+        return 0, None, []
+    os.makedirs(outdir, exist_ok=True)
+    for fn in os.listdir(outdir):
+        if fn.endswith(".csv"):
+            os.remove(os.path.join(outdir, fn))
+    tmax = None
+    punts = []
+    for q in sorted(triades):
+        dkm, e = triades[q]
+        a = e["actual"]
+        dtiso = _fint_iso(a.get("fint"))
+        ta = a.get("ta") if a.get("ta") is not None else 20.0
+        nom = (e.get("nom") or e.get("idema")).split(" - ")[0].replace(",", "")
+        _escriu_csv_estacio(outdir, e["idema"], nom, e["lat"], e["lon"], a["vv"] / 3.6, a["dv"], ta, dtiso)
+        tmax = max(tmax or dtiso, dtiso)
+        punts.append((e["lon"], e["lat"]))
+        print("  quadrant %s: %s a %.1f km (%.0f km/h, %d°, obs %s)"
+              % (QUADRANTS[q], nom[:24], dkm, a["vv"], round(float(a["dv"])), dtiso))
+    return len(punts), tmax, punts
+
+
 def escriu_zona_domini(out, mesh, dem_src, speed, direction, dtiso, nom, dkm):
     """Mode producció SENSE estacions dins: vent mitjà uniforme (WindNinja ajusta el relleu)."""
     d = os.path.join(out, "zona")
@@ -473,11 +540,27 @@ def main():
                 n, dtiso = estacions_aemet_csv(bbox, estdir, pwd)  # prova AEMET (inclou AEMET CV) publicat
             if n >= 1 and dtiso:
                 escriu_zona(a.out, a.mesh, dem, n, dtiso)       # inicialització per estacions
-            else:                                               # cap estació dins: vent mitjà de la més propera
-                rep = vent_representatiu(bbox, pwd)
-                if not rep:
-                    raise SystemExit("cap estació amb vent ni dins ni prop de la caixa")
-                escriu_zona_domini(a.out, a.mesh, dem, rep[0], rep[1], rep[2], rep[3], rep[4])
+            else:
+                # Cap estació DINS de la caixa: la més pròxima de CADA quadrant
+                # (N/E/S/O) fins a un límit que depén del relleu. El DEM s'amplia
+                # perquè WindNinja exigeix les estacions dins del terreny; el
+                # payload es retalla igualment al bbox demanat (windninja_zona.py).
+                dmax = dmax_pel_relleu(dem)
+                n, dtiso, punts_q = estacions_quadrants(bbox, estdir, pwd, dmax)
+                if n >= 1 and dtiso:
+                    mar = 0.02                                  # ~2 km de marge
+                    lons = [p[0] for p in punts_q] + [bbox[0], bbox[2]]
+                    lats = [p[1] for p in punts_q] + [bbox[1], bbox[3]]
+                    bbox2 = (min(lons) - mar, min(lats) - mar, max(lons) + mar, max(lats) + mar)
+                    print("  DEM ampliat per cobrir els quadrants: %.3f,%.3f,%.3f,%.3f" % bbox2)
+                    big2, tr2 = baixa_dem(bbox2, a.zoom)
+                    escriu_dem_utm(big2, tr2, bbox2, dem, a.res)
+                    escriu_zona(a.out, a.mesh, dem, n, dtiso)
+                else:                                           # ni per quadrants: vent mitjà de la més propera
+                    rep = vent_representatiu(bbox, pwd)
+                    if not rep:
+                        raise SystemExit("cap estació amb vent ni dins ni prop de la caixa")
+                    escriu_zona_domini(a.out, a.mesh, dem, rep[0], rep[1], rep[2], rep[3], rep[4])
         else:
             escriu_proves(a.out, a.mesh, dem, n, dtiso)
     print("Fet.")
