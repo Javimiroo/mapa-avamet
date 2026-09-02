@@ -345,7 +345,12 @@ def estacions_aemet_csv(bbox, outdir, password):
     for fn in os.listdir(outdir):
         if fn.endswith(".csv"):
             os.remove(os.path.join(outdir, fn))
-    n = 0
+    # 1a passada: validar i trobar l'hora més recent. 2a: escriure TOTES les
+    # estacions amb EIXA hora. Si cada CSV porta la seua pròpia hora de lectura,
+    # WindNinja (mode sèrie temporal, un sol instant) DESCARTA en silenci les que
+    # no tenen dada en l'instant exacte del càlcul i el camp acaba obeint una
+    # única estació (vist a l'incendi del Saler, 28-08-2026: 6 dins, 1 usada).
+    valides = []
     tmax = None
     for e in ests:
         a = e.get("actual") or {}
@@ -353,12 +358,16 @@ def estacions_aemet_csv(bbox, outdir, password):
         dtiso = _fint_iso(a.get("fint"))
         if vv is None or dv is None or not dtiso:
             continue
+        valides.append(e)
+        tmax = max(tmax or dtiso, dtiso)
+    n = 0
+    for e in valides:
+        a = e["actual"]
         ta = a.get("ta") if a.get("ta") is not None else 20.0
         nom = (e.get("nom") or e.get("idema")).split(" - ")[0].replace(",", "")
-        _escriu_csv_estacio(outdir, e["idema"], nom, e["lat"], e["lon"], vv / 3.6, dv, ta, dtiso)
-        tmax = max(tmax or dtiso, dtiso)
+        _escriu_csv_estacio(outdir, e["idema"], nom, e["lat"], e["lon"], a["vv"] / 3.6, a["dv"], ta, tmax)
         n += 1
-    print("  estacions AVAMET (publicació) dins del bbox: %d (obs %s)" % (n, tmax))
+    print("  estacions AVAMET (publicació) dins del bbox: %d (obs %s; totes entren amb esta hora)" % (n, tmax))
     return n, tmax
 
 
@@ -435,19 +444,19 @@ def estacions_quadrants(bbox, outdir, password, dmax_km):
     for fn in os.listdir(outdir):
         if fn.endswith(".csv"):
             os.remove(os.path.join(outdir, fn))
-    tmax = None
+    # totes amb l'hora més recent (si no, WindNinja descarta les que no tenen
+    # lectura en l'instant exacte del càlcul — vegeu estacions_aemet_csv)
+    tmax = max(_fint_iso(triades[q][1]["actual"].get("fint")) for q in triades)
     punts = []
     for q in sorted(triades):
         dkm, e = triades[q]
         a = e["actual"]
-        dtiso = _fint_iso(a.get("fint"))
         ta = a.get("ta") if a.get("ta") is not None else 20.0
         nom = (e.get("nom") or e.get("idema")).split(" - ")[0].replace(",", "")
-        _escriu_csv_estacio(outdir, e["idema"], nom, e["lat"], e["lon"], a["vv"] / 3.6, a["dv"], ta, dtiso)
-        tmax = max(tmax or dtiso, dtiso)
+        _escriu_csv_estacio(outdir, e["idema"], nom, e["lat"], e["lon"], a["vv"] / 3.6, a["dv"], ta, tmax)
         punts.append((e["lon"], e["lat"]))
         print("  quadrant %s: %s a %.1f km (%.0f km/h, %d°, obs %s)"
-              % (QUADRANTS[q], nom[:24], dkm, a["vv"], round(float(a["dv"])), dtiso))
+              % (QUADRANTS[q], nom[:24], dkm, a["vv"], round(float(a["dv"])), _fint_iso(a.get("fint"))))
     return len(punts), tmax, punts
 
 
