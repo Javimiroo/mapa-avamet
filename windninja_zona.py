@@ -103,6 +103,10 @@ def converteix(dirpath, bbox, nx=220, ny=220, estacions=None):
 
     # comprovació de seguretat: el camp ha de reproduir les estacions (vel + direcció)
     avis, ajust = comprova(estacions, fwd, vel, ang, nod, hv, rows, cols)
+    if os.path.exists(os.path.join(dirpath, "PLA_B")):
+        pb = ("Règim complex: l'ajust exacte a les estacions no ha convergit; "
+              "camp APROXIMAT d'una sola passada.")
+        avis = pb + (" " + avis if avis else "")
 
     idx = np.nonzero(val.ravel())[0]
     n = int(idx.size)
@@ -182,8 +186,8 @@ def comprova(estdir, fwd, vel, ang, nod, hv, rows, cols):
         ajust["factor"] = round(f, 2)
         print("  comprovació d'unitats amb %d estacions: factor mitjà %.2f" % (len(difs), f))
         if not (0.6 <= f <= 1.6):
-            avis = ("ATENCIÓ: el camp no quadra amb les estacions (factor %.2f). "
-                    "Revisa les unitats de sortida de WindNinja." % f)
+            avis = ("ATENCIÓ: el camp s'aparta de la velocitat observada "
+                    "(factor %.2f: <1 subestima, >1 sobreestima)." % f)
     if derr:
         e = float(np.median(derr))
         ajust["n"] = len(derr)

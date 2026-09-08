@@ -201,7 +201,7 @@ def estacions_csv(bbox, outdir, meta_path="meteocat_estacions.json"):
 
 
 # ------------------------------------------------------------------ cfg
-BASE_CFG = """num_threads = 1
+BASE_CFG = """num_threads = 4
 elevation_file = /data/dem.tif
 input_wind_height = 10.0
 units_input_wind_height = m
@@ -256,7 +256,7 @@ def escriu_proves(out, mesh, dem_src, n_est, dtiso):
     return proves
 
 
-def cfg_punts(dtiso=None):
+def cfg_punts(dtiso=None, match=True):
     """Inicialització per estacions via MANIFEST (llista.csv): és l'única via
     d'esta versió de WindNinja per usar TOTES les estacions alhora (verificat
     amb el binari: les 8 del Saler ixen al 'Stations matching check').
@@ -264,8 +264,8 @@ def cfg_punts(dtiso=None):
     dtiso donat -> mode sèrie temporal (previsió): start=stop=dtiso, 1 pas."""
     cfg = ("initialization_method = pointInitialization\n"
            "wx_station_filename = /data/estacions/llista.csv\n"
-           "match_points = true\n"
-           "time_zone = UTC\n")
+           "match_points = %s\n"
+           "time_zone = UTC\n" % ("true" if match else "false"))
     if dtiso:
         d = datetime.strptime(dtiso[:16], "%Y-%m-%dT%H:%M")
         t = (d.year, d.month, d.day, d.hour, d.minute)
@@ -288,6 +288,12 @@ def escriu_zona(out, mesh, dem_src, n_est, dtiso):
     shutil.copytree(os.path.join(out, "estacions"), est)
     with open(os.path.join(d, "run.cfg"), "w", encoding="utf-8") as f:
         f.write(BASE_CFG.format(mesh=mesh) + cfg_punts())   # dades actuals: sense finestra temporal
+    # PLA B: si l'ajust exacte no convergeix (règim contradictori en terreny
+    # complex -> WindNinja llança excepció i no trau camp), el workflow reintenta
+    # amb este cfg sense match_points: una sola passada, sempre trau camp, i la
+    # comprovació de fidelitat quantifica la diferència amb cada estació.
+    with open(os.path.join(d, "run_sense_ajust.cfg"), "w", encoding="utf-8") as f:
+        f.write(BASE_CFG.format(mesh=mesh) + cfg_punts(match=False))
     print("  zona preparada: %s (%d estacions, obs. %s)" % (d, n_est, dtiso))
     return d
 
@@ -535,8 +541,12 @@ def escriu_previsio(out, mesh, dem_src, punts, hora_iso, diurn=False):
                             float(p["lat"]), float(p["lon"]), vel / 3.6, dire, ta, hora_iso, nuv)
     escriu_llista(est, serie=True)      # manifest de sèrie temporal (hora vàlida)
     cfg = BASE_CFG.format(mesh=mesh) + cfg_punts(hora_iso)
+    cfg_b = BASE_CFG.format(mesh=mesh) + cfg_punts(hora_iso, match=False)
     if diurn:
         cfg += "diurnal_winds = true\n"     # l'hora solar ix de start/stop (cfg_punts)
+        cfg_b += "diurnal_winds = true\n"
+    with open(os.path.join(d, "run_sense_ajust.cfg"), "w", encoding="utf-8") as f:
+        f.write(cfg_b)
     with open(os.path.join(d, "run.cfg"), "w", encoding="utf-8") as f:
         f.write(cfg)
     print("  PREVISIÓ: %d punts virtuals, hora %s, diürn=%s" % (len(punts), hora_iso, diurn))
