@@ -334,6 +334,23 @@ def _estacions_publicades(password):
     return _PUB_CACHE
 
 
+VELL_MAX_MIN = 90   # estació sense actualitzar més de 90 min: FORA del camp de vents, sempre
+
+
+def _edat_min(e, ara=None):
+    """Minuts des de l'última observació REAL de l'estació (camp 'obs' del
+    rellotge de la MXO; si no hi és, fint). None = desconegut (no es descarta)."""
+    a = e.get("actual") or {}
+    t = _fint_iso(a.get("obs") or a.get("fint"))
+    if not t:
+        return None
+    try:
+        d = datetime.strptime(t[:16], "%Y-%m-%dT%H:%M").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    return ((ara or datetime.now(timezone.utc)) - d).total_seconds() / 60.0
+
+
 def _fint_iso(t):
     if not t:
         return None
@@ -394,8 +411,12 @@ def estacions_aemet_csv(bbox, outdir, password):
         dtiso = _fint_iso(a.get("fint"))
         if vv is None or dv is None or not dtiso:
             continue
-        ta = a.get("ta") if a.get("ta") is not None else 20.0
         nom = (e.get("nom") or e.get("idema")).split(" - ")[0].replace(",", "")
+        ed = _edat_min(e)
+        if ed is not None and ed > VELL_MAX_MIN:
+            print("  ✗ descartada %s: sense actualitzar des de fa %.1f h" % (nom[:30], ed / 60.0))
+            continue
+        ta = a.get("ta") if a.get("ta") is not None else 20.0
         _escriu_csv_estacio(outdir, e["idema"], nom, e["lat"], e["lon"], a["vv"] / 3.6, a["dv"], ta)
         tmax = max(tmax or dtiso, dtiso)
         n += 1
@@ -413,7 +434,8 @@ def vent_representatiu(bbox, password=None):
     ests = [e for e in _estacions_publicades(password)
             if e.get("lat") is not None and e.get("lon") is not None
             and (e.get("actual") or {}).get("vv") is not None
-            and (e.get("actual") or {}).get("dv") is not None]
+            and (e.get("actual") or {}).get("dv") is not None
+            and not ((_edat_min(e) or 0) > VELL_MAX_MIN)]   # congelades fora, també ací
     if not ests:
         return None
 
@@ -464,6 +486,9 @@ def estacions_quadrants(bbox, outdir, password, dmax_km):
             continue
         if a.get("vv") is None or a.get("dv") is None or not _fint_iso(a.get("fint")):
             continue
+        ed = _edat_min(e)
+        if ed is not None and ed > VELL_MAX_MIN:
+            continue                                   # congelada: mai al camp de vents
         dx = (e["lon"] - cx) * math.cos(math.radians(cy))
         dy = e["lat"] - cy
         dkm = 111.0 * math.hypot(dx, dy)

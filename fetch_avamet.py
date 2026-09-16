@@ -149,6 +149,8 @@ RE_ID = re.compile(r'id=(c\d{2}m\d{3}e\d{2})')
 RE_TD = re.compile(r'<td[^>]*>(.*?)</td>', re.S)
 RE_TAG = re.compile(r'<[^>]+>')
 RE_NOM = re.compile(r'>([^<>]*)<span class="rEstaDmxo"><span class="ptda"></span>([^<>]*)</span>', re.S)
+# rellotge de cada estació a l'última cel·la: <td title="16-09-2026 09:20">
+RE_RELLOTGE = re.compile(r'title="(\d{2})-(\d{2})-(\d{4})[ T](\d{1,2}):(\d{2})"')
 RE_UPD = re.compile(r'actuali[tz]+[sz]?ad[ae]s?:\s*(\d{2})-(\d{2})-(\d{4})\s+(\d{1,2}):(\d{2})', re.I)
 
 
@@ -202,7 +204,20 @@ def parseja_mxo(html):
         if malt:
             alt = int(malt.group(1))
         dvtxt = _cel_text(cels[11]).upper()
+        # hora REAL de l'última dada de l'ESTACIÓ (cel·la del rellotge). Sense
+        # això, una estació congelada que encara ix a la taula (o que el fetch
+        # conserva) pareix fresca i enverina el camp de vents (Calles, Tuéjar).
+        obs_iso = None
+        mrel = RE_RELLOTGE.findall(tr)
+        if mrel:
+            d2, m2, y2, h2, i2 = (int(x) for x in mrel[-1])
+            try:
+                obs_iso = (datetime(y2, m2, d2, h2, i2, tzinfo=TZ_LOCAL)
+                           .astimezone(timezone.utc).isoformat().replace("+00:00", "Z"))
+            except ValueError:
+                obs_iso = None
         files.append({
+            "obs": obs_iso,
             "id": mid.group(1), "nom": nom, "comarca": comarca, "alt": alt,
             "ta": _num(_cel_text(cels[2])), "tamin": _num(_cel_text(cels[3])),
             "tamax": _num(_cel_text(cels[4])), "tpr": _num(_cel_text(cels[5])),
@@ -408,7 +423,8 @@ def estacions_avamet(meta, prev_full):
             "font": "AVAMET", "lat": m["lat"], "lon": m["lon"],
             "alt": f["alt"] if f["alt"] is not None else m.get("alt"),
             "actual": {
-                "fint": fint_iso, "ta": f["ta"], "tamax": None, "tamin": None,
+                "fint": fint_iso, "obs": f.get("obs") or fint_iso,
+                "ta": f["ta"], "tamax": None, "tamin": None,
                 "tamax_dia": f["tamax"], "tamin_dia": f["tamin"], "n_hores": 0,
                 "hr": f["hr"], "vv": f["vv"], "vmax": f["vmax"], "dv": f["dv"],
                 "dmax": None, "prec": prec_int, "prec_dia": f["prec_dia"],

@@ -940,7 +940,7 @@ function dataLoc(iso){const d=toDate(iso);return d?d.toLocaleString('ca-ES',{day
 function refNow(){ return (typeof timeT!=='undefined' && timeT!=null) ? new Date(timeT) : toDate(DATA&&DATA.generat); }
 function horesDesdeObs(st){
   if(!DATA) return null;
-  const g=refNow(), f=toDate(st.actual&&st.actual.fint);
+  const g=refNow(), f=toDate(st.actual&&(st.actual.obs||st.actual.fint));   // obs = rellotge REAL de l'estació (una congelada que encara ix a la taula d'AVAMET té fint fresc però obs vell)
   if(!g||!f) return null;
   return (g-f)/3600000;
 }
