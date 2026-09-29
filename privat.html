@@ -1121,7 +1121,8 @@ function carregaComarques(){
   return comarcaLoad;
 }
 function mostraComarques(m,which){
-  if(!m.getPane('comarquesPane')){ m.createPane('comarquesPane'); m.getPane('comarquesPane').style.zIndex=250; }
+  // pane de comarques DAMUNT de les superfícies (model/QPE/radar, overlay=400) i sota els discos (600)
+  if(!m.getPane('comarquesPane')){ m.createPane('comarquesPane'); m.getPane('comarquesPane').style.zIndex=450; }
   carregaComarques().then(()=>{
     const grp=L.layerGroup([],{pane:'comarquesPane'});
     if(comarcaGeo) L.geoJSON(comarcaGeo,{pane:'comarquesPane',style:()=>COMARCA_STYLE}).addTo(grp);
@@ -2342,16 +2343,6 @@ async function generarImatge(){
     for(const p of panes){
       c.save(); c.beginPath(); c.rect(x,mapY,mapW,mapH); c.clip();   // RES es pot pintar fora del requadre del mapa
       c.drawImage(p.canvas,0,0,p.canvas.width,p.canvas.height, x,mapY,mapW,mapH);
-      // COMARQUES + perfil de Catalunya per PROJECCIÓ (per a TOTES les variables quan el fons és
-      // Blanc+comarques): queden alineades amb dades i discos (el SVG l'hem ignorat a la captura).
-      if(esBlanc && (comarcaGeo||catGeo) && p.mapObj){
-        const el=p.el, sxp=mapW/el.clientWidth, syp=mapH/el.clientHeight;
-        const drawGeo=(geo,st)=>{ if(!geo||!geo.features) return; c.save(); c.strokeStyle=st.color; c.lineWidth=Math.max(0.6,st.weight)*S; c.globalAlpha=st.opacity==null?1:st.opacity; c.lineJoin='round'; c.lineCap='round';
-          geo.features.forEach(f=>{ const gg=f.geometry; if(!gg) return; const polys=gg.type==='MultiPolygon'?gg.coordinates:(gg.type==='Polygon'?[gg.coordinates]:[]);
-            polys.forEach(rings=>rings.forEach(ring=>{ c.beginPath(); ring.forEach((pt,k)=>{ const q=p.mapObj.latLngToContainerPoint([pt[1],pt[0]]); const X=x+q.x*sxp, Y=mapY+q.y*syp; k?c.lineTo(X,Y):c.moveTo(X,Y); }); c.stroke(); })); });
-          c.restore(); };
-        drawGeo(comarcaGeo, COMARCA_STYLE); drawGeo(catGeo, CAT_STYLE);
-      }
       // SUPERFÍCIE QPE dibuixada a mà per projecció (render suau), mateixa que a pantalla.
       // Cantonades amb mitja cel·la perquè els centres de cel·la caiguen al seu punt exacte.
       if(selVar.value==='pacum' && $('pacumSurf') && $('pacumSurf').checked && p.mapObj){
@@ -2442,6 +2433,16 @@ async function generarImatge(){
         c.closePath();
         c.fillStyle='rgba(232,56,13,0.10)'; c.fill();
         c.strokeStyle='#e8380d'; c.lineWidth=3*S; c.lineJoin='round'; c.stroke();
+      }
+      // COMARQUES + perfil per PROJECCIÓ, DESPRÉS de superfície/radar/vent i abans dels discos
+      // (com a pantalla: el pane de comarques va per damunt de les superfícies).
+      if(esBlanc && (comarcaGeo||catGeo) && p.mapObj){
+        const el=p.el, sxp=mapW/el.clientWidth, syp=mapH/el.clientHeight;
+        const drawGeo=(geo,st)=>{ if(!geo||!geo.features) return; c.save(); c.strokeStyle=st.color; c.lineWidth=Math.max(0.6,st.weight)*S; c.globalAlpha=st.opacity==null?1:st.opacity; c.lineJoin='round'; c.lineCap='round';
+          geo.features.forEach(f=>{ const gg=f.geometry; if(!gg) return; const polys=gg.type==='MultiPolygon'?gg.coordinates:(gg.type==='Polygon'?[gg.coordinates]:[]);
+            polys.forEach(rings=>rings.forEach(ring=>{ c.beginPath(); ring.forEach((pt,k)=>{ const q=p.mapObj.latLngToContainerPoint([pt[1],pt[0]]); const X=x+q.x*sxp, Y=mapY+q.y*syp; k?c.lineTo(X,Y):c.moveTo(X,Y); }); c.stroke(); })); });
+          c.restore(); };
+        drawGeo(comarcaGeo, COMARCA_STYLE); drawGeo(catGeo, CAT_STYLE);
       }
       if(p.markers) c.drawImage(p.markers,0,0,p.markers.width,p.markers.height, x,mapY,mapW,mapH);   // discos (caixes d'info) SEMPRE els últims (a dalt de tot)
       c.restore();                                     // fi del retall al requadre del mapa
@@ -4629,17 +4630,27 @@ function harPointPopup(m,e){
   L.popup({maxWidth:250}).setLatLng(e.latlng).setContent(html).openOn(m);
 }
 let harGenClick=null; harGenClick=e=>harPointPopup(map,e);
-let harSurf=null, harArr=null;
+let harSurf=null, harArr=null, harPerf=null;   // harPerf = perfil de la CV damunt de la previsió
+
 async function harMapToggle(on){
   if(on){ if($('harInfo'))$('harInfo').textContent='Carregant la previsió…'; const ok=await harEnsure();
     if(!ok){ if($('harInfo'))$('harInfo').textContent='Encara no hi ha cap passada publicada (branca «harmonie»). Executa el workflow.'; return; }
     if(!harSurf)harSurf=new HarMapSurface(); if(!map.hasLayer(harSurf))harSurf.addTo(map);
     if(!harArr)harArr=new HarMapArrows(); if(!map.hasLayer(harArr))harArr.addTo(map);
     if(baseLayer)baseLayer.bringToBack();
+    // perfil de la CV per damunt de la superfície del model (halo blanc + línia fosca), per ubicar el mapa
+    carregaComarques().then(()=>{ if(catGeo){
+      if(!map.getPane('comarquesPane')){ map.createPane('comarquesPane'); map.getPane('comarquesPane').style.zIndex=450; }
+      if(!harPerf) harPerf=L.layerGroup([
+        L.geoJSON(catGeo,{pane:'comarquesPane',style:()=>({color:'#ffffff',weight:3.4,opacity:0.55,fill:false,interactive:false})}),
+        L.geoJSON(catGeo,{pane:'comarquesPane',style:()=>({color:'#1f2937',weight:1.5,opacity:0.95,fill:false,interactive:false})})]);
+      if(!map.hasLayer(harPerf)) harPerf.addTo(map);
+    }});
     const p=HARM.payload; if($('harInfo'))$('harInfo').innerHTML='Passada <b>'+p.run.slice(8,10)+'Z</b> del '+p.run.slice(6,8)+'/'+p.run.slice(4,6)+' · '+p.hores.length+' h · clica un punt del mapa';
     if(estacionsMostra){ estacionsMostra=false; try{render();}catch(e){} }   // amaga estacions en activar el model
     harSyncControls(); harRedraw();
   } else { if(harSurf&&map.hasLayer(harSurf))map.removeLayer(harSurf); if(harArr&&map.hasLayer(harArr))map.removeLayer(harArr);
+    if(harPerf&&map.hasLayer(harPerf))map.removeLayer(harPerf);
     if(!estacionsMostra){ estacionsMostra=true; try{render();}catch(e){} } }
 }
 let estacionsMostra=true;
@@ -4818,13 +4829,6 @@ async function prevExporta(){
     c.save(); c.beginPath(); c.rect(x,mapY,mapW,mapH); c.clip();
     c.drawImage(shot,0,0,shot.width,shot.height,x,mapY,mapW,mapH);
     const el=$('map'), sxp=mapW/el.clientWidth, syp=mapH/el.clientHeight;
-    if(esBlanc && (typeof comarcaGeo!=='undefined') && (comarcaGeo||catGeo)){
-      const drawGeo=(geo,st)=>{ if(!geo||!geo.features)return; c.save(); c.strokeStyle=st.color; c.lineWidth=Math.max(0.6,st.weight)*S; c.globalAlpha=st.opacity==null?1:st.opacity; c.lineJoin='round';
-        geo.features.forEach(f=>{const gg=f.geometry; if(!gg)return; const polys=gg.type==='MultiPolygon'?gg.coordinates:(gg.type==='Polygon'?[gg.coordinates]:[]);
-          polys.forEach(rings=>rings.forEach(ring=>{c.beginPath(); ring.forEach((pt,k)=>{const q=map.latLngToContainerPoint([pt[1],pt[0]]),X=x+q.x*sxp,Y=mapY+q.y*syp; k?c.lineTo(X,Y):c.moveTo(X,Y);}); c.stroke();}));});
-        c.restore(); };
-      drawGeo(comarcaGeo,COMARCA_STYLE); drawGeo(catGeo,CAT_STYLE);
-    }
     if(HARM.varK!=='cap'){ const f=p.fields[HARM.varK]; if(f&&f.arr){ const nx=p.nx,ny=p.ny,B=p.bbox,mm=HARV[HARM.varK],base=(f.lo||0),sc=f.scale,thr=(mm.thr!=null?mm.thr:-1e9);
       const off=document.createElement('canvas'); off.width=nx; off.height=ny; const oc=off.getContext('2d'),im=oc.createImageData(nx,ny),d=im.data;
       for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){ const v=base+f.arr[((h*ny)+j)*nx+i]*sc, q=(j*nx+i)*4; if(!mm.alwaysDraw&&v<thr){d[q+3]=0;continue;} const cc=harColor(HARM.varK,v); d[q]=cc[0];d[q+1]=cc[1];d[q+2]=cc[2];d[q+3]=255; }
@@ -4832,6 +4836,16 @@ async function prevExporta(){
       const pNW=map.latLngToContainerPoint([B[3],B[0]]),pSE=map.latLngToContainerPoint([B[2],B[1]]);
       c.save(); c.imageSmoothingEnabled=true; c.imageSmoothingQuality='high'; c.globalAlpha=HARM.opac;
       c.drawImage(off, x+pNW.x*sxp, mapY+pNW.y*syp, (pSE.x-pNW.x)*sxp, (pSE.y-pNW.y)*syp); c.restore(); } }
+    // comarques (si fons blanc) i PERFIL de la CV SEMPRE, per damunt de la superfície (per ubicar el mapa)
+    if((typeof comarcaGeo!=='undefined') && (comarcaGeo||catGeo)){
+      const drawGeo=(geo,st)=>{ if(!geo||!geo.features)return; c.save(); c.strokeStyle=st.color; c.lineWidth=Math.max(0.6,st.weight)*S; c.globalAlpha=st.opacity==null?1:st.opacity; c.lineJoin='round';
+        geo.features.forEach(f=>{const gg=f.geometry; if(!gg)return; const polys=gg.type==='MultiPolygon'?gg.coordinates:(gg.type==='Polygon'?[gg.coordinates]:[]);
+          polys.forEach(rings=>rings.forEach(ring=>{c.beginPath(); ring.forEach((pt,k)=>{const q=map.latLngToContainerPoint([pt[1],pt[0]]),X=x+q.x*sxp,Y=mapY+q.y*syp; k?c.lineTo(X,Y):c.moveTo(X,Y);}); c.stroke();}));});
+        c.restore(); };
+      if(esBlanc) drawGeo(comarcaGeo,COMARCA_STYLE);
+      drawGeo(catGeo,{color:'#ffffff',weight:3.2,opacity:0.55});
+      drawGeo(catGeo,{color:'#1f2937',weight:1.5,opacity:0.95});
+    }
     if(HARM.arrowsOn){ const fd=p.fields.dir,fv=p.fields.vent; if(fd&&fd.arr){ const nx=p.nx,ny=p.ny,B=p.bbox,dlon=(B[1]-B[0])/nx,dlat=(B[3]-B[2])/ny,nod=(fd.nodata!=null?fd.nodata:255);
       const q0=map.latLngToContainerPoint([B[3],B[0]]),q1=map.latLngToContainerPoint([B[3]-dlat,B[0]+dlon]),cellpx=Math.max(2,Math.hypot(q1.x-q0.x,q1.y-q0.y))*sxp,step=Math.max(1,Math.round(42/cellpx));
       for(let j=(step>>1);j<ny;j+=step)for(let i=(step>>1);i<nx;i+=step){ const bd=fd.arr[((h*ny)+j)*nx+i]; if(bd===nod)continue; const deg=((bd*fd.scale)+180)%360,spd=fv?((fv.lo||0)+fv.arr[((h*ny)+j)*nx+i]*fv.scale):0;
