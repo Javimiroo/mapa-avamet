@@ -8,7 +8,14 @@
 <html lang="ca">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0b1220">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pyromet CV">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Pyromet · Meteorologia al servei de les decisions operatives en emergències</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' rx='26' fill='%230b1220'/%3E%3Cg fill='none' stroke-linejoin='round' stroke-linecap='round' stroke-width='7' transform='translate(6,6) scale(.9)'%3E%3Cg transform='translate(0,-6)'%3E%3Cpath d='M30 78H86A16 16 0 0 0 86 46A22 22 0 0 0 44 40A21 21 0 0 0 30 78Z' stroke='%23e2e8f0'/%3E%3Cpath d='M44 90L40 104M62 90L58 104' stroke='%2338bdf8'/%3E%3C/g%3E%3Cpath transform='translate(0,3)' d='M90 72C96 80 104 86 104 96A14 14 0 0 1 76 96C76 90 79 86 82 83C82 88 85 90 87 90C85 83 87 78 90 72Z' stroke='%23f97316'/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -129,7 +136,7 @@
                  background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px}
   .gatebox .btn{width:100%}
   .gatebox input::placeholder{color:var(--muted);opacity:.9;transition:opacity .15s}
-  .gatebox input:hover::placeholder,.gatebox input:focus::placeholder{opacity:0}   /* el text d'ajuda desapareix en passar-hi el cursor o escriure */
+  @media (hover:hover){ .gatebox input:hover::placeholder{opacity:0} }   /* el text d'ajuda desapareix en passar-hi el cursor (ordinador) o en escriure */
   .gerr{font-size:12px;color:var(--warn);margin-top:12px;min-height:16px}
   /* cercador de pobles */
   #cercaWrap{position:relative}
@@ -257,6 +264,7 @@
 
 <div id="app">
   <button id="toggle">✕ Menú</button>
+  <div id="offPill">📴 Sense connexió · última situació guardada</div>
   <div id="panel">
     <div class="pyromet-logo" aria-label="Pyromet" title="Pyromet · Meteorologia al servei de les decisions operatives en emergències"><svg viewBox="0 0 120 120" aria-hidden="true"><g fill="none" stroke-linejoin="round" stroke-linecap="round" stroke-width="5"><g transform="translate(0,-6)"><path d="M30 78H86A16 16 0 0 0 86 46A22 22 0 0 0 44 40A21 21 0 0 0 30 78Z" stroke="currentColor"/><path d="M44 90L40 104M62 90L58 104" stroke="var(--pm-cyan)"/></g><path transform="translate(0,3)" d="M90 72C96 80 104 86 104 96A14 14 0 0 1 76 96C76 90 79 86 82 83C82 88 85 90 87 90C85 83 87 78 90 72Z" stroke="#f97316"/></g></svg><span>Pyro<b>met</b></span></div>
     <p class="sub" id="fontline">Observació en temps real</p>
@@ -280,6 +288,48 @@
       .leaflet-top.leaflet-left{top:auto!important;bottom:86px!important;left:auto!important;right:12px!important}
       .leaflet-top.leaflet-left .leaflet-control-zoom{margin:0!important}
       @media(max-width:720px){ #floatTop{left:10px;right:10px} #floatTop #cercaWrap{width:auto;flex:1} }
+      #offPill{position:absolute;top:56px;left:50%;transform:translateX(-50%);z-index:1250;display:none;background:#7c2d12;color:#fed7aa;border:1px solid #c2410c;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+      /* ====================== MÒBIL (≤ 760 px): mapa complet + menú com a full inferior ====================== */
+      @media (max-width:760px){
+        #app{height:100dvh}
+        #panel{top:auto;bottom:0;left:0;width:100%;max-width:100%;height:64dvh;border-right:none;border-top:1px solid var(--line);
+               border-radius:16px 16px 0 0;padding:6px 12px calc(28px + env(safe-area-inset-bottom));box-shadow:0 -6px 24px rgba(0,0,0,.55);z-index:1300}
+        #panel::before{content:'';display:block;width:44px;height:4px;border-radius:4px;background:#475569;margin:4px auto 8px}
+        #app.collapsed #panel{transform:translateY(106%)}
+        #panel .pyromet-logo{font-size:20px}
+        #tabs{top:-6px}
+        #tabs .tab{min-width:0;flex:1 1 30%;padding:10px 4px;font-size:13px}
+        #panel select,#panel input[type=text],#panel input[type=number],#panel input[type=datetime-local],.gatebox input,#floatTop #cerca{font-size:16px}   /* 16 px: iOS no fa zoom en enfocar */
+        #panel .btn,#prevPanel .btn{min-height:40px}
+        #panel .btn.small,#prevPanel .btn.small{min-height:36px;padding:6px 10px}
+        #panel .switch{margin:11px 0;font-size:13px}
+        #toggle{top:8px;right:8px;height:42px;z-index:1400}
+        #floatTop,#app.collapsed #floatTop{left:8px;right:102px;top:8px;padding:5px 6px;gap:6px}
+        #floatTop #cercaWrap{width:auto;flex:1;min-width:0}
+        #floatTop #exportar{font-size:0;padding:8px 11px;min-height:40px}
+        #floatTop #exportar::before{content:'📷';font-size:17px}
+        .leaflet-control-zoom{display:none!important}                 /* al mòbil, zoom amb dos dits */
+        #floatFons,#app.prevopen #floatFons{right:8px;top:auto;bottom:calc(60px + env(safe-area-inset-bottom));padding:4px 6px}
+        #floatFons #basemap{font-size:13px;max-width:120px}
+        #timebar{bottom:calc(8px + env(safe-area-inset-bottom));max-width:96vw}
+        .tb-btn{padding:9px 11px}
+        #harLegend{bottom:calc(10px + env(safe-area-inset-bottom));max-width:94vw}
+        #prevPanel{top:auto;bottom:0;width:100%;max-width:100%;height:72dvh;border-left:none;border-top:1px solid var(--line);border-radius:16px 16px 0 0;z-index:1350;padding-bottom:calc(28px + env(safe-area-inset-bottom))}
+        #offPill{top:58px}
+        /* tauler d'incendi: una sola columna (mapa a dalt, seccions a sota, tot desplaçable) */
+        #focModal .foc-body{flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch}
+        #focModal .foc-left{flex:none!important;height:auto;border-right:none!important;border-bottom:1px solid #334155}
+        #focMap{flex:none!important;height:50dvh;min-height:300px}
+        #focModal .foc-left select{width:auto;max-width:46vw}
+        #focSub{display:none}
+        #focRight{flex:none!important;min-width:0!important;max-width:none!important;width:100%;overflow:visible!important}
+        #focModal .foc-head{padding:6px 8px!important;gap:6px!important}
+        #focModal .foc-head .btn.small{padding:7px 9px;font-size:12px;min-height:36px}
+        #focTitol{font-size:15px!important;flex:1 1 100%}
+        #focFull{display:none}
+        #focModal .tb-btn{padding:6px 10px}
+        .leaflet-container .leaflet-control-attribution{font-size:9px}
+      }
     </style>
     <div id="tabs">
       <button class="tab actiu" data-t="temps">Temps real</button>
@@ -301,6 +351,20 @@
     <div class="card coll collapsed">
       <h2>Incendi</h2>
       <div class="cardbody">
+        <div id="bomBloc" style="margin:0 0 12px;padding:9px 10px;border:1px solid #7c2d12;border-radius:10px;background:rgba(249,115,22,.07)">
+          <div style="display:flex;align-items:center;gap:6px">
+            <b style="font-size:12px;color:#fb923c">🚒 Incendis de vegetació actius</b>
+            <span class="muted" style="font-size:11px">· Bombers (visor públic)</span>
+            <span style="flex:1"></span>
+            <button class="btn small" id="bomRefresca" title="Torna a consultar el visor de Bombers">↻</button>
+          </div>
+          <div id="bomInfo" class="muted" style="font-size:11px;margin:5px 0 6px">Consultant…</div>
+          <div id="bomList" style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto"></div>
+          <div class="row" style="gap:6px;margin-top:8px;align-items:center">
+            <button class="btn primary small" id="bomAfegir" style="flex:1" disabled>➕ Afegir els seleccionats com a incendis</button>
+            <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap"><input type="checkbox" id="bomMapa"> mostra-les al mapa</label>
+          </div>
+        </div>
         <details id="crearInc">
         <summary class="subhdr" style="cursor:pointer;user-select:none">CREAR INCENDI</summary>
         <button class="btn" id="focNou" style="width:100%;margin:8px 0 9px">➕ Nou incendi (buida el formulari)</button>
@@ -769,7 +833,7 @@
 #focRight .acc-b{padding:8px 12px;background:#0b1220}
 </style>
 <div id="focModal" style="display:none;position:fixed;inset:0;z-index:5000;background:#0b1220;color:#e5e7eb;flex-direction:column">
-  <div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #334155;background:#0f172a;flex-wrap:wrap">
+  <div class="foc-head" style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #334155;background:#0f172a;flex-wrap:wrap">
     <b id="focTitol" style="font-size:16px">🔥 Incendi</b>
     <label style="font-size:12px;color:#cbd5e1;display:flex;align-items:center;gap:5px">Inici
       <input type="datetime-local" id="focIniciInput" style="background:#0b1220;color:#e5e7eb;border:1px solid #334155;border-radius:6px;padding:3px 6px;font-size:12px"></label>
@@ -782,8 +846,8 @@
     <button class="btn small" id="focZipBtn">🗜 ZIP</button>
     <button class="btn small" id="focTancar">✕ Tancar</button>
   </div>
-  <div style="flex:1;display:flex;min-height:0">
-    <div style="flex:1.4;position:relative;min-width:0;display:flex;flex-direction:column;border-right:1px solid #334155">
+  <div class="foc-body" style="flex:1;display:flex;min-height:0">
+    <div class="foc-left" style="flex:1.4;position:relative;min-width:0;display:flex;flex-direction:column;border-right:1px solid #334155">
       <!-- barra d'eines slim: només observació i edició -->
       <div style="display:flex;gap:8px;align-items:center;padding:6px 10px;background:#0f172a;border-bottom:1px solid #1e293b;flex-wrap:wrap">
         <label style="font-size:12px;color:#cbd5e1">Variable:</label>
@@ -876,6 +940,28 @@
           </div>
           <div id="focPrevSaved" style="margin-top:4px"></div>
           <div id="focPrevActiveInfo" style="margin-top:4px"></div>
+        </div>
+      </div>
+      <!-- 2b) CON DE PROPAGACIÓ (BETA) -->
+      <div class="acc collapsed" id="accCon">
+        <div class="acc-h">🔥 Con de propagació <span style="font-weight:700;font-size:10px;color:#0b1220;background:#fbbf24;border-radius:999px;padding:1px 7px;margin-left:4px">BETA</span> <span style="font-weight:400;font-size:11px;color:#94a3b8">· 1 / 3 / 6 h</span><span class="chev">▾</span></div>
+        <div class="acc-b">
+          <p style="font-size:11px;color:#fbbf24;margin:0 0 8px;line-height:1.35">⚠️ <b>Versió beta.</b> Estimació de superfície amb el model de Rothermel (1972) i el·lipse d'Alexander/Anderson, a partir del vent al punt, el pendent i un model de combustible <b>únic i homogeni</b>. No modela focus secundaris, foc de capçades, canvis de combustible ni extinció. Suport a la decisió, no predicció.</p>
+          <div class="grid2" style="display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font-size:11px;color:#cbd5e1">
+            <label>Combustible (Anderson 13)<select id="conFuel" style="width:100%;background:#0b1220;color:#e5e7eb;border:1px solid #334155;border-radius:6px;padding:3px 5px;font-size:11px"></select></label>
+            <label>Vent<select id="conVentSrc" style="width:100%;background:#0b1220;color:#e5e7eb;border:1px solid #334155;border-radius:6px;padding:3px 5px;font-size:11px">
+              <option value="auto">Automàtic (WindNinja › model › estació)</option><option value="wn">WindNinja (camp fi)</option><option value="model">Model de previsió (hora de la barra)</option><option value="est">Estació més pròxima</option><option value="man">Manual</option></select></label>
+            <label>Vent manual (km/h · de °)<div class="row" style="gap:4px"><input type="number" id="conVv" min="0" max="150" step="1" placeholder="km/h" style="width:50%;background:#0b1220;color:#e5e7eb;border:1px solid #334155;border-radius:6px;padding:3px 5px;font-size:11px"><input type="number" id="conDv" min="0" max="360" step="5" placeholder="de °" style="width:50%;background:#0b1220;color:#e5e7eb;border:1px solid #334155;border-radius:6px;padding:3px 5px;font-size:11px"></div></label>
+            <label>Factor vent a mitja flama<input type="number" id="conWaf" value="0.4" min="0.1" max="1" step="0.05" style="width:100%;background:#0b1220;color:#e5e7eb;border:1px solid #334155;border-radius:6px;padding:3px 5px;font-size:11px" title="Fracció del vent a 10 m que arriba a mitja flama (0,4 obert · 0,3 matollar · 0,15 sota bosc)"></label>
+            <label>FMd 1 h (%) <span style="color:#94a3b8">auto si buit</span><input type="number" id="conFmd" min="1" max="35" step="0.5" placeholder="auto" style="width:100%;background:#0b1220;color:#e5e7eb;border:1px solid #334155;border-radius:6px;padding:3px 5px;font-size:11px"></label>
+            <label>Humitat combustible viu (%)<input type="number" id="conLive" value="90" min="30" max="300" step="5" style="width:100%;background:#0b1220;color:#e5e7eb;border:1px solid #334155;border-radius:6px;padding:3px 5px;font-size:11px"></label>
+          </div>
+          <div class="row" style="gap:6px;margin-top:8px;align-items:center">
+            <button class="btn small" id="conCalc" style="flex:1">🔥 Calcular con (1 · 3 · 6 h)</button>
+            <button class="btn small" id="conClear" title="Esborrar el con del mapa">🗑</button>
+          </div>
+          <div id="conInfo" style="font-size:11px;color:#94a3b8;margin-top:6px;line-height:1.4">Des de la flama de l'incendi. Prem «Calcular».</div>
+          <div id="conRes" style="margin-top:6px"></div>
         </div>
       </div>
       <!-- 3) Estacions + meteogrames -->
@@ -1010,7 +1096,6 @@ const ORDER = ['ta','hr','fmd','tpr','barbes','vv','vmax','dv','prec','pacum','p
 // VPD (kPa) = es(T)·(1 − HR/100), es per Tetens. Es calcula a partir de Tª i HR (estacions i models ICON/AROME).
 function vpdKpa(t,hr){ if(t==null||hr==null||isNaN(t)||isNaN(hr)) return null; const es=0.6108*Math.exp(17.27*t/(t+237.3)); return Math.max(0,es*(1-Math.max(0,Math.min(100,hr))/100)); }
 function fmdDe(t,hr){ const v=vpdKpa(t,hr); if(v==null) return null; return Math.max(0, 1.19 + 19.81226*Math.exp(-0.28511*v) - 2.70265); }
-
 let pacumPeriode = '24h';
 let pacumMax = 200;                            // fins on arriba la LLEGENDA. Els colors són FIXOS (10, 50,
                                                // 100, 200 sempre el mateix color); només es RETALLA l'extensió
@@ -2471,8 +2556,10 @@ async function generarImatge(){
     }
     // Nom per a la capçalera: l'INCENDI ACTIU (🟢) del qual estem traient informació; si n'hi ha més
     // d'un, tots separats per " · ". Si no n'hi ha cap d'actiu, el camp "Nom / lloc" del formulari (si està ple).
-    const actius=(typeof focsCache!=='undefined'&&Array.isArray(focsCache))?focsCache.filter(f=>f&&f.actiu&&f.nom):[];
-    const nom=actius.length?actius.map(f=>f.nom.trim()).join(' · '):($('incident').value||'').trim();
+    // NOMÉS els incendis que estan realment DIBUIXATS al mapa ara (flames actives) o la flama en edició amb nom:
+    // si l'usuari lleva l'incendi del mapa, el subtítol desapareix (ell decideix què és rellevant).
+    const alMapa=(typeof focsCache!=='undefined'&&Array.isArray(focsCache))?focsCache.filter(f=>f&&f.actiu&&f.flama&&f.nom&&map.hasLayer&&focsActiusMarkers.some(m=>map.hasLayer(m)&&m.getLatLng().lat===f.flama.lat&&m.getLatLng().lng===f.flama.lng)):[];
+    const nom=alMapa.length?alMapa.map(f=>f.nom.trim()).join(' · '):((flameLL&&($('incident').value||'').trim())||'');
     const panes = comboActive
       ? [{el:$('map'),mapObj:map,spec:specWithThr(comboActive.a)},{el:$('map2'),mapObj:map2,spec:specWithThr(comboActive.b)}]
       : [{el:$('map'),mapObj:map,spec:especMapaUnic()}];
@@ -2696,11 +2783,7 @@ async function generarImatge(){
       c.fillText('Dades: AVAMET (MeteoXarxa) · Base: IGN  ·  Eina desenvolupada per Javi Miró', W-pad, y2);
     }
     if(restaura){ try{restaura();}catch(e){} restaura=null; }   // torna el mapa a com estava
-    cv.toBlob(bl=>{
-      const a=document.createElement('a'); a.href=URL.createObjectURL(bl);
-      a.download='situacio_meteo_'+(nom||'incendi').replace(/[^\w]+/g,'_')+'.png'; a.click();
-      setTimeout(()=>URL.revokeObjectURL(a.href),4000);
-    },'image/png');
+    cv.toBlob(bl=>lliuraImatge(bl,'situacio_meteo_'+(nom||'pyromet').replace(/[^\w]+/g,'_')+'.png','Situació meteorològica'+(nom?(' · '+nom):'')),'image/png');
   }catch(e){ alert('No s\'ha pogut generar la imatge: '+(e&&e.message||e)); }
   if(restaura){ try{restaura();}catch(e){} }           // si ha petat a mig camí, torna la vista igualment
   try{ const el=$('map'); if(el && el.style.width){ el.style.width=''; el.style.height=''; el.style.right=''; el.style.bottom=''; map.invalidateSize({animate:false}); } }catch(e){}   // seguretat: mai deixar el mapa redimensionat
@@ -2779,6 +2862,39 @@ $('toggle').onclick=()=>{
   $('toggle').textContent=app.classList.contains('collapsed')?'☰ Menú':'✕ Menú';
   setTimeout(()=>map.invalidateSize(),300);
 };
+// ===================== MÒBIL =====================
+// Al mòbil el menú és un full inferior: arrenca tancat (el mapa és el protagonista) i es tanca sol quan
+// l'acció següent és tocar el mapa (situar la flama, dibuixar el perímetre, anar a un incendi).
+const ES_MOBIL=()=>window.matchMedia('(max-width:760px)').matches;
+function mobilTancaMenu(){ if(!ES_MOBIL()) return; const app=$('app'); if(!app.classList.contains('collapsed')){ app.classList.add('collapsed'); $('toggle').textContent='☰ Menú'; } }
+if(ES_MOBIL()){ $('app').classList.add('collapsed'); $('toggle').textContent='☰ Menú'; }
+['flama','perimBtn'].forEach(id=>{ const b=$(id); if(b) b.addEventListener('click',()=>setTimeout(mobilTancaMenu,0)); });
+// píndola "sense connexió" (la PWA mostra l'última situació guardada pel service worker)
+function foraLinia(on){ const o=$('offPill'); if(o) o.style.display=on?'block':'none'; }
+window.addEventListener('offline',()=>foraLinia(true)); window.addEventListener('online',()=>foraLinia(false));
+if(navigator.onLine===false) foraLinia(true);
+// LLIURAMENT D'IMATGES: a l'ordinador es descarrega; al mòbil s'obri una previsualització amb «Compartir»
+// (full natiu: WhatsApp, Telegram, correu…) i «Descarregar». Cal un toc nou de l'usuari per compartir, per això el full.
+function baixaBlob(blob,nom){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=nom; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); }
+function lliuraImatge(blob,nom,titol){
+  let file=null; try{ file=new File([blob],nom,{type:'image/png'}); }catch(e){}
+  const tactil=ES_MOBIL()||window.matchMedia('(pointer:coarse)').matches;
+  let pot=false; try{ pot=!!(file&&tactil&&navigator.canShare&&navigator.canShare({files:[file]})); }catch(e){}
+  if(!pot){ baixaBlob(blob,nom); return; }
+  const vell=$('shareOv'); if(vell) vell.remove();
+  const url=URL.createObjectURL(blob), ov=document.createElement('div'); ov.id='shareOv';
+  ov.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(2,6,23,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:16px';
+  ov.innerHTML='<img src="'+url+'" alt="Imatge generada" style="max-width:100%;max-height:60dvh;border-radius:10px;border:1px solid #334155;background:#fff">'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">'
+    +'<button class="btn primary" id="shGo" style="min-height:46px;padding:0 20px;font-size:15px">📤 Compartir</button>'
+    +'<button class="btn" id="shDl" style="min-height:46px;padding:0 16px;font-size:15px">⬇️ Descarregar</button>'
+    +'<button class="btn" id="shX" style="min-height:46px;padding:0 16px;font-size:15px">✕ Tancar</button></div>';
+  document.body.appendChild(ov);
+  const tanca=()=>{ ov.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000); };
+  ov.querySelector('#shX').onclick=tanca;
+  ov.querySelector('#shDl').onclick=()=>{ baixaBlob(blob,nom); tanca(); };
+  ov.querySelector('#shGo').onclick=async()=>{ try{ await navigator.share({files:[file],title:titol||'Pyromet',text:titol||''}); tanca(); }catch(e){ if(!(e&&e.name==='AbortError')) baixaBlob(blob,nom); } };
+}
 
 // ------------------------------------------------------------------ dades (xifrades)
 function infoXarxa(font){
@@ -2938,7 +3054,9 @@ let SESSIO=null;                                                   // {token, us
 const TAB_BLOC={temps:'observacio',analisi:'analisi',prev:'previsio',incendi:'incendi',arxiu:'arxiu'};
 function teBloc(b){ return !SESSIO || !SESSIO.blocs || SESSIO.blocs.includes(b); }   // sense sessió (mode antic) = tot
 async function authFetch(path,body,method){
-  const r=await fetch(AUTH_URL+path,{method:method||'POST',headers:{'Content-Type':'application/json',...(SESSIO&&SESSIO.token?{Authorization:'Bearer '+SESSIO.token}:{})},body:(method==='GET')?undefined:JSON.stringify(body||{})});
+  const ctl=(typeof AbortController!=='undefined')?new AbortController():null, to=ctl?setTimeout(()=>ctl.abort(),9000):null;   // 9 s: si el servidor d'accés no respon, no ens quedem penjats
+  let r; try{ r=await fetch(AUTH_URL+path,{method:method||'POST',headers:{'Content-Type':'application/json',...(SESSIO&&SESSIO.token?{Authorization:'Bearer '+SESSIO.token}:{})},body:(method==='GET')?undefined:JSON.stringify(body||{}),signal:ctl?ctl.signal:undefined}); }
+  finally{ if(to) clearTimeout(to); }
   let j={}; try{ j=await r.json(); }catch(e){} return Object.assign({status:r.status},j);
 }
 async function entraAmbDades(p){
@@ -2947,14 +3065,20 @@ async function entraAmbDades(p){
   carregaIndexArxiu(); carregaVent();
   setTimeout(()=>map.invalidateSize(),150);
 }
+const CLAU_KEY='pyromet_k_'+REGIO;
+function desaSessio(){ try{ const u=SESSIO.usuari||{}; localStorage.setItem(SESSIO_KEY,JSON.stringify({token:SESSIO.token,u:{nom:u.nom,email:u.email,rol:u.rol,blocs:SESSIO.blocs,regions:SESSIO.regions}})); }catch(e){} }
 function aplicaSessio(j){
   SESSIO={token:j.token||(SESSIO&&SESSIO.token),usuari:j.usuari,blocs:j.usuari.blocs||[],regions:j.usuari.regions||[]};
-  try{ localStorage.setItem(SESSIO_KEY,JSON.stringify({token:SESSIO.token})); }catch(e){}
+  desaSessio();
+  // clau de dades de la regió, guardada en este dispositiu per poder obrir l'última situació SENSE connexió o si el
+  // servidor d'accés està caigut (s'esborra en tancar sessió o si el servidor revoca l'accés)
+  if(j.claus && j.claus[REGIO]){ try{ localStorage.setItem(CLAU_KEY,j.claus[REGIO]); }catch(e){} }
   if(j.clausApp && j.clausApp[REGIO]){ try{ localStorage.setItem('app_pass',j.clausApp[REGIO]); }catch(e){} }   // Worker d'incendis/actualitzar
   const bar=$('sessioBar'); if(bar){ bar.style.display='flex'; $('sessioQui').textContent=(j.usuari.nom||j.usuari.email)+(j.usuari.rol==='admin'?' · admin':''); }
   aplicaPermisos();
   if(j.usuari.passTemporal) setTimeout(()=>canviaContrasenya(true),600);
   iniciaBatec();
+  if(teBloc('incendi') && typeof bomConsulta==='function') setTimeout(bomConsulta,1500);   // badge d'incendis actius a la pestanya
 }
 // BATEC de presència: cada 5 min (i en obrir/tornar a la pestanya) l'app avisa el Worker que l'usuari és en línia;
 // el panell d'administració mostra qui hi ha ara i compta les visites diàries per regió. Sense sessió (mode antic) no fa res.
@@ -2995,15 +3119,27 @@ async function recuperaSessio(){
   if(!t||!t.token) return false;
   const gs=$('gateSessio'); if(gs) gs.style.display='block';
   SESSIO={token:t.token};
+  let j=null, senseServidor=false;
+  try{ j=await authFetch('/me',null,'GET'); if(j.status>=500) senseServidor=true; }catch(e){ senseServidor=true; }
+  if(senseServidor){
+    // sense connexió o servidor d'accés caigut: entra amb l'última clau i els permisos guardats en este dispositiu
+    let k=null; try{ k=localStorage.getItem(CLAU_KEY); }catch(e){}
+    if(k){ try{
+        const u=t.u||{}; SESSIO={token:t.token,usuari:u,blocs:u.blocs||null,regions:u.regions||[]};
+        const bar=$('sessioBar'); if(bar){ bar.style.display='flex'; $('sessioQui').textContent=(u.nom||u.email||'')+' · sense servidor d\'accés'; }
+        await entraAmbDades(k); aplicaPermisos(); if(navigator.onLine===false) foraLinia(true); return true;
+      }catch(e){} }
+    SESSIO=null; if(gs) gs.style.display='none';
+    $('gateerr').textContent='No s\'ha pogut contactar amb el servidor d\'accés. Torna-ho a provar en uns minuts.'; return false;   // la sessió NO s'esborra
+  }
   try{
-    const j=await authFetch('/me',null,'GET');
     if(!j.ok||!(j.claus&&j.claus[REGIO])) throw new Error('sessio');
     aplicaSessio(j); await entraAmbDades(j.claus[REGIO]); return true;
-  }catch(e){ SESSIO=null; try{ localStorage.removeItem(SESSIO_KEY); }catch(e2){} if(gs) gs.style.display='none'; return false; }
+  }catch(e){ SESSIO=null; try{ localStorage.removeItem(SESSIO_KEY); localStorage.removeItem(CLAU_KEY); }catch(e2){} if(gs) gs.style.display='none'; return false; }
 }
 async function tancaSessio(){
   try{ if(SESSIO&&SESSIO.token) await authFetch('/logout',{}); }catch(e){}
-  try{ localStorage.removeItem(SESSIO_KEY); localStorage.removeItem('app_pass'); }catch(e){}
+  try{ localStorage.removeItem(SESSIO_KEY); localStorage.removeItem(CLAU_KEY); localStorage.removeItem('app_pass'); }catch(e){}
   location.reload();
 }
 async function canviaContrasenya(obligat){
@@ -3012,7 +3148,7 @@ async function canviaContrasenya(obligat){
   if(nova.length<8){ alert('Ha de tenir 8 caràcters o més.'); return; }
   const j=await authFetch('/password',{actual:actual,nova:nova});
   if(!j.ok){ alert(j.missatge||(j.error==='credencials'?'La contrasenya actual no és correcta.':'No s\'ha pogut canviar.')); return; }
-  SESSIO.token=j.token; try{ localStorage.setItem(SESSIO_KEY,JSON.stringify({token:j.token})); }catch(e){}
+  SESSIO.token=j.token; desaSessio();
   alert('Contrasenya canviada.');
 }
 // ---------------- incendis: importar perímetre i guardar els 20 últims ----------------
@@ -3104,14 +3240,13 @@ async function focsSync(nomesSiPass){
   if(nomesSiPass && !passEquip(false)){ focsRender(); return; }
   let a=await focsAPI('llista',null,!nomesSiPass);
   if(a){
-    // RE-PUJADA automàtica dels incendis que van quedar "només ací" perquè el
-    // Worker va fallar en guardar-los: ara que hi ha connexió, es pugen sols.
+    // RE-PUJADA automàtica dels incendis que van quedar "només ací" (el Worker va fallar en guardar-los):
+    // ara que hi ha connexió es pugen sols. Si no es poden pujar, NO es perden: es conserven a la llista local.
     const pendents=focsCache.filter(f=>String(f.id).startsWith('local') && !a.some(x=>String(x.id)===String(f.id)));
-    for(const f of pendents){
-      const r=await focsAPI('guarda',{foc:f},false);
-      if(r) a=r;
-    }
-    focsCache=a; focsLocalDesa(a);
+    const noPujats=[];
+    for(const f of pendents){ const r=await focsAPI('guarda',{foc:f},false); if(r) a=r; else noPujats.push(f); }
+    focsCache=noPujats.concat(a); focsLocalDesa(focsCache);
+    if(noPujats.length) console.warn('focs locals pendents de pujar:',noPujats.map(f=>f.nom));
   }
   focsRender();
 }
@@ -3128,8 +3263,7 @@ function focsRender(){
     const d=new Date(f.ts||Date.now());
     const q=d.toLocaleDateString('ca-ES',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});
     const nper=focPerimsDe(f).length, nrun=(f.runs||[]).length;
-    const extra=(nper?(' · '+nper+' perím.'):'')+(nrun?(' · '+nrun+' vent'):'')+(f.fi?' · 🏁':'')
-      +(String(f.id).startsWith('local')?' · <b style="color:#f59e0b">⚠ només en este navegador</b>':'');
+    const extra=(nper?(' · '+nper+' perím.'):'')+(nrun?(' · '+nrun+' vent'):'')+(f.fi?' · 🏁':'')+(String(f.id).startsWith('local')?' · <span style="color:#fb923c">local* (no pujat al servidor)</span>':'');
     const sel=(String(f.id)===String(focActualId))?';outline:2px solid var(--accent)':'';
     return '<div class="row" style="align-items:stretch;gap:5px;margin-top:5px">'
       +'<button class="btn small focA" data-id="'+f.id+'" title="'+(f.actiu?'Actiu al mapa · clica per desactivar':'Inactiu · clica per mostrar-lo al mapa')+'" style="flex:0 0 auto">'+(f.actiu?'🟢':'⚪')+'</button>'
@@ -3190,6 +3324,7 @@ function focCarrega(id){
   const pts=perimLL.slice(); if(flameLL) pts.push(flameLL);
   if(pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.35));
   focsRender(); actualitzaBotoGuarda();
+  if(typeof mobilTancaMenu==='function') mobilTancaMenu();
 }
 function actualitzaBotoGuarda(){
   const b=$('focGuarda'); if(!b)return;
@@ -3204,6 +3339,74 @@ function focNou(){                          // comença un incendi de zero (no m
   actualitzaBotoGuarda(); focsRender();
 }
 $('focNou').addEventListener('click',focNou);
+
+// ===================== INCENDIS ACTIUS DE BOMBERS (visor públic d'actuacions urgents, ArcGIS) =====================
+// Font: capa pública del visor d'actuacions de Bombers de la Generalitat (Interior) — punts de les actuacions
+// URGENTS en curs, tipus "incendi vegetació" (forestal VF / agrícola VA), amb municipi, hora d'inici, situació i
+// fase (Estabilitzat/Controlat). Es consulta en entrar i a petició; l'usuari tria quins vol donar d'alta com a
+// incendis de l'app (nom = municipi, flama = punt de l'actuació, hora d'inici = la de Bombers). Mai s'afig res sol.
+const BOMBERS_URL='https://services7.arcgis.com/ZCqVt1fRXwwK6GF4/arcgis/rest/services/ACTUACIONS_URGENTS_online_PRO_AMB_FASE_VIEW/FeatureServer/0/query';
+let bomActius=[], bomLayer=null, bomTimer=null;
+async function bomConsulta(){
+  const inf=$('bomInfo'); if(!inf) return;
+  if(REGIO!=='cat'){ const b=$('bomBloc'); if(b) b.style.display='none'; return; }   // el visor és de Bombers de la Generalitat (Catalunya)
+  inf.textContent='Consultant el visor de Bombers…';
+  try{
+    const u=BOMBERS_URL+'?where='+encodeURIComponent("TAL_COD_ALARMA1='IV'")+'&outFields=*&returnGeometry=true&outSR=4326&f=json&_='+Date.now();
+    const d=await fetch(u,{cache:'no-store'}).then(r=>r.json());
+    if(!d||!Array.isArray(d.features)) throw new Error('resposta buida');
+    bomActius=d.features.filter(f=>f.geometry&&f.attributes).map(f=>{ const a=f.attributes; return {
+      id:a.GlobalID||String(a.OBJECTID), lat:f.geometry.y, lon:f.geometry.x, municipi:a.MUNICIPI_DPX||a.MUNICIPI_SIG||'—',
+      tipus:a.TAL_COD_ALARMA2==='VF'?'forestal':(a.TAL_COD_ALARMA2==='VA'?'agrícola':(a.TAL_DESC_ALARMA2||'vegetació')),
+      inici:a.ACT_DAT_INICI||a.ACT_DAT_ACTUACIO||null, situacio:a.ACT_SITUACIO||'', fase:a.COM_FASE||'', veh:a.ACT_NUM_VEH||0, actual:a.DATA_ACT||a.ACT_DAT_ACTUAL||null }; })
+      .sort((x,y)=>(y.inici||0)-(x.inici||0));
+    bomRender();
+  }catch(e){ inf.textContent='No s\'ha pogut consultar el visor de Bombers ('+(e&&e.message||e)+').'; }
+}
+function bomJaAfegit(b){            // ja és a la llista d'incendis? (per id de Bombers, o mateix municipi a <1,5 km)
+  return (focsCache||[]).find(f=>(f.bombers&&f.bombers===b.id) || (f.flama && f.nom && f.nom.toLowerCase().startsWith(b.municipi.toLowerCase()) && haversineKm({lat:f.flama.lat,lng:f.flama.lng},{lat:b.lat,lng:b.lon})<1.5));
+}
+function bomBadge(){ const t=document.querySelector('#tabs .tab[data-t="incendi"]'); if(!t) return; let b=t.querySelector('.bomBadge'); if(!bomActius.length){ if(b) b.remove(); return; } if(!b){ b=document.createElement('span'); b.className='bomBadge'; b.style.cssText='display:inline-block;margin-left:5px;padding:0 6px;border-radius:999px;background:#f97316;color:#0b1220;font-size:10px;font-weight:700;vertical-align:1px'; t.appendChild(b); } b.textContent=bomActius.length; b.title=bomActius.length+' incendis de vegetació actius (Bombers)'; }
+function bomRender(){ bomBadge();
+  const inf=$('bomInfo'), ul=$('bomList'); if(!inf||!ul) return;
+  const fmt=ms=>ms?new Date(ms).toLocaleString('ca-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+  inf.innerHTML=bomActius.length?('<b>'+bomActius.length+'</b> actuacions en curs · consultat '+new Date().toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'})):'Cap incendi de vegetació en curs ara mateix.';
+  ul.innerHTML=bomActius.map(b=>{ const ja=bomJaAfegit(b);
+    return '<label style="display:flex;gap:7px;align-items:flex-start;font-size:12px;padding:5px 6px;border-radius:7px;background:var(--bg);cursor:pointer'+(ja?';opacity:.55':'')+'">'
+      +'<input type="checkbox" class="bomChk" value="'+b.id+'" '+(ja?'disabled':'')+' style="margin-top:2px">'
+      +'<span style="flex:1"><b>'+b.municipi+'</b> <span class="muted">· '+b.tipus+'</span><br><span class="muted" style="font-size:11px">inici '+fmt(b.inici)+(b.fase?(' · <span style="color:#fbbf24">'+b.fase+'</span>'):'')+(b.veh?(' · '+b.veh+' veh.'):'')+(ja?' · <span style="color:#86efac">ja a l\'app</span>':'')+'</span></span>'
+      +'<button class="btn small bomVes" data-id="'+b.id+'" title="Centrar el mapa" style="padding:1px 6px">📍</button></label>'; }).join('');
+  bomCapaMapa(); bomBotons();
+}
+function bomBotons(){ const n=document.querySelectorAll('.bomChk:checked').length; const b=$('bomAfegir'); if(b){ b.disabled=!n; b.textContent=n?('➕ Afegir '+n+' com a incendi'+(n>1?'s':'')):'➕ Afegir els seleccionats com a incendis'; } }
+function bomCapaMapa(){               // punts taronja dels incendis actius de Bombers al mapa (opcional, sense desar)
+  if(bomLayer){ try{map.removeLayer(bomLayer);}catch(e){} bomLayer=null; }
+  if(!($('bomMapa')&&$('bomMapa').checked) || !bomActius.length) return;
+  bomLayer=L.layerGroup(bomActius.map(b=>L.circleMarker([b.lat,b.lon],{radius:7,color:'#7c2d12',weight:2,fillColor:'#fb923c',fillOpacity:.9,pane:'markerPane'})
+    .bindTooltip('🚒 '+b.municipi+' · '+b.tipus+(b.fase?(' · '+b.fase):''),{direction:'top'}))).addTo(map);
+}
+async function bomAfegir(){
+  const ids=[...document.querySelectorAll('.bomChk:checked')].map(c=>c.value); if(!ids.length) return;
+  const b=$('bomAfegir'); b.disabled=true; b.textContent='Afegint…';
+  let n=0, ultim=null, nomesLocal=0;
+  for(const id of ids){ const x=bomActius.find(y=>y.id===id); if(!x) continue;
+    const foc={ nom:x.municipi+(x.tipus==='forestal'?'':(' ('+x.tipus+')')), flama:{lat:+x.lat.toFixed(5),lng:+x.lon.toFixed(5)}, perims:[], inici:x.inici||Date.now(), actiu:true, bombers:x.id };
+    const a=await focsAPI('guarda',{foc});
+    if(a){ focsCache=a; focsLocalDesa(a); n++; ultim=a[0]; }
+    else { foc.id='local'+Date.now(); foc.ts=Date.now(); focsCache=[foc].concat(focsCache).slice(0,20); focsLocalDesa(focsCache); n++; ultim=foc; nomesLocal++; }
+  }
+  if(nomesLocal) alert(nomesLocal+' incendi'+(nomesLocal>1?'s':'')+' NO s\'ha'+(nomesLocal>1?'n':'')+' pogut guardar al servidor de l\'equip (queda'+(nomesLocal>1?'n':'')+' només en este navegador, marcat'+(nomesLocal>1?'s':'')+' «local»). Es tornarà a intentar pujar-lo en recarregar. Si persisteix, revisa la contrasenya de l\'equip (↻ a la llista).');
+  focsRender(); if(typeof renderFocsActius==='function') try{ renderFocsActius(); }catch(e){}
+  if(ultim&&ultim.id) focCarrega(ultim.id);
+  bomRender(); b.textContent='✓ '+n+' afegit'+(n>1?'s':''); setTimeout(bomBotons,1800);
+}
+if($('bomRefresca')) $('bomRefresca').onclick=bomConsulta;
+if($('bomAfegir')) $('bomAfegir').onclick=bomAfegir;
+if($('bomMapa')) $('bomMapa').onchange=bomCapaMapa;
+if($('bomList')){ $('bomList').addEventListener('change',bomBotons);
+  $('bomList').addEventListener('click',e=>{ const v=e.target.closest('.bomVes'); if(!v) return; e.preventDefault(); const x=bomActius.find(y=>y.id===v.dataset.id); if(x){ map.setView([x.lat,x.lon],12); if(typeof mobilTancaMenu==='function') mobilTancaMenu(); } }); }
+// es consulta en obrir la pestanya Incendi (i cada 10 min mentre estiga oberta)
+function bomArrenca(){ bomConsulta(); if(!bomTimer) bomTimer=setInterval(()=>{ if(!document.hidden && document.querySelector('#tabs .tab.actiu')?.dataset.t==='incendi') bomConsulta(); },10*60*1000); }
 $('focGuarda').addEventListener('click',focGuarda);
 $('focSync').addEventListener('click',()=>focsSync(false));
 $('focList').addEventListener('click',async e=>{
@@ -5115,6 +5318,182 @@ function focAccOpen(id){ document.querySelectorAll('#focRight .acc').forEach(a=>
 function initFocAccordion(){ document.querySelectorAll('#focRight .acc-h').forEach(h=>{ if(h.dataset.w==='1')return; h.dataset.w='1';
   h.onclick=(e)=>{ if(e.target.closest('select'))return; const a=h.parentElement;
     if(a.classList.contains('collapsed')) focAccOpen(a.id); else a.classList.add('collapsed'); }; }); }
+// ====================== CON DE PROPAGACIÓ (BETA): Rothermel (1972) + el·lipse (Anderson 1983 / Alexander 1985) ======================
+// Models de combustible d'Anderson (1982): càrregues t/ac (1h,10h,100h,viu herbaci,viu llenyós), SAV ft⁻¹ (1h, viu),
+// profunditat ft, humitat d'extinció %. Dins del motor es treballa en unitats imperials (constants originals) i
+// s'exporta en mètric. Referència: Andrews (2018) "The Rothermel surface fire spread model and associated developments".
+const FUELS13={
+  1:{nom:'1 · Herba curta (pastura)',           w:[0.74,0,0,0,0],        sav:3500,savL:1500,d:1.0,mx:12},
+  2:{nom:'2 · Herba amb arbres/matoll dispers', w:[2.00,1.00,0.50,0.50,0],sav:3000,savL:1500,d:1.0,mx:15},
+  3:{nom:'3 · Herba alta (canyar/cereal)',      w:[3.01,0,0,0,0],        sav:1500,savL:1500,d:2.5,mx:25},
+  4:{nom:'4 · Matollar alt i dens (>2 m)',      w:[5.01,4.01,2.00,0,5.01],sav:2000,savL:1500,d:6.0,mx:20},
+  5:{nom:'5 · Matollar baix (<1 m)',            w:[1.00,0.50,0,0,2.00],  sav:2000,savL:1500,d:2.0,mx:20},
+  6:{nom:'6 · Matollar mitjà (1–2 m)',          w:[1.50,2.50,2.00,0,0],  sav:1750,savL:1500,d:2.5,mx:25},
+  7:{nom:'7 · Bosc amb sotabosc arbustiu',      w:[1.13,1.87,1.50,0,0.37],sav:1750,savL:1550,d:2.5,mx:40},
+  8:{nom:'8 · Bosc, fullaraca compacta',        w:[1.50,1.00,2.50,0,0],  sav:2000,savL:1500,d:0.2,mx:30},
+  9:{nom:'9 · Bosc, fullaraca solta (pinassa)', w:[2.92,0.41,0.15,0,0],  sav:2500,savL:1500,d:0.2,mx:25},
+  10:{nom:'10 · Bosc amb restes i sotabosc',    w:[3.01,2.00,5.01,0,2.00],sav:2000,savL:1500,d:1.0,mx:25},
+  11:{nom:'11 · Restes lleugeres (tallades)',   w:[1.50,4.51,5.51,0,0],  sav:1500,savL:1500,d:1.0,mx:15},
+  12:{nom:'12 · Restes mitjanes',               w:[4.01,14.03,16.53,0,0],sav:1500,savL:1500,d:2.3,mx:20},
+  13:{nom:'13 · Restes pesades',                w:[7.01,23.04,28.05,0,0],sav:1500,savL:1500,d:3.0,mx:25},
+};
+// Rothermel amb ponderació d'Albini per classes. Entrades: fuel (FUELS13), mdead=[m1h,m10h,m100h] (fracció), mlive (fracció),
+// Umid = vent a mitja flama (m/s), slope = tan(pendent) en la direcció del vent... es combinen com a vectors (vegeu conCalcula).
+function rothermel(fuel, mdead, mlive, Umid_ms, tanSlope){
+  const TPA=2000/43560;                                   // t/ac -> lb/ft²
+  const w0=fuel.w.map(x=>x*TPA);                          // [1h,10h,100h,herb,llenyós]
+  const sav=[fuel.sav,109,30,fuel.savL,fuel.savL];
+  const M=[mdead[0],mdead[1],mdead[2],mlive,mlive];
+  const h=8000, rp=32, ST=0.0555, SE=0.010;
+  const cat=[[0,1,2],[3,4]];                              // mort / viu
+  const A=w0.map((w,j)=>sav[j]*w/rp);
+  const Ai=cat.map(ix=>ix.reduce((a,j)=>a+A[j],0)), AT=Ai[0]+Ai[1];
+  if(AT<=0) return null;
+  const f=w0.map((w,j)=>{ const i=j<3?0:1; return Ai[i]>0?A[j]/Ai[i]:0; });
+  const fi=Ai.map(a=>a/AT);
+  const sigI=cat.map((ix,i)=>ix.reduce((a,j)=>a+f[j]*sav[j],0));
+  const sig=fi[0]*sigI[0]+fi[1]*sigI[1];
+  // grups de mida per a la càrrega neta (Albini)
+  const grup=sv=>sv>=1200?0:(sv>=192?1:(sv>=96?2:(sv>=48?3:(sv>=16?4:5))));
+  // càrrega neta per categoria: wn_i = Σ_j g_ij·w0_j·(1−ST), amb g_ij = Σ f de les classes del mateix grup de mida (Albini 1976)
+  const wnI=cat.map((ix,i)=>{ const gsum={}; ix.forEach(j=>{ const k=grup(sav[j]); gsum[k]=(gsum[k]||0)+f[j]; }); return ix.reduce((a,j)=>a+ gsum[grup(sav[j])]*w0[j]*(1-ST),0); });
+  const wtot=w0.reduce((a,b)=>a+b,0), delta=fuel.d, rb=wtot/delta, beta=rb/rp;
+  const bop=3.348*Math.pow(sig,-0.8189), rel=beta/bop;
+  const gmax=Math.pow(sig,1.5)/(495+0.0594*Math.pow(sig,1.5)), Aexp=133*Math.pow(sig,-0.7913);
+  const gamma=gmax*Math.pow(rel,Aexp)*Math.exp(Aexp*(1-rel));
+  const Mf=cat.map((ix,i)=>ix.reduce((a,j)=>a+f[j]*M[j],0));
+  let mxL=fuel.mx/100;
+  if(Ai[1]>0){ const num=cat[0].reduce((a,j)=>a+w0[j]*Math.exp(-138/sav[j]),0), den=cat[1].reduce((a,j)=>a+w0[j]*Math.exp(-500/sav[j]),0);
+    const W=den>0?num/den:0; mxL=Math.max(fuel.mx/100, 2.9*W*(1-Mf[0]/(fuel.mx/100))-0.226); }
+  const mx=[fuel.mx/100,mxL];
+  const etaM=cat.map((ix,i)=>{ const r=Math.min(1,Mf[i]/mx[i]); return Math.max(0,1-2.59*r+5.11*r*r-3.52*r*r*r); });
+  const etaS=0.174*Math.pow(SE,-0.19);
+  const IR=gamma*(wnI[0]*h*etaM[0]*etaS+(Ai[1]>0?wnI[1]*h*etaM[1]*etaS:0));
+  const xi=Math.exp((0.792+0.681*Math.sqrt(sig))*(beta+0.1))/(192+0.2595*sig);
+  const sink=rb*cat.reduce((acc,ix,i)=>acc+fi[i]*ix.reduce((a,j)=>a+f[j]*Math.exp(-138/sav[j])*(250+1116*M[j]),0),0);
+  const R0=sink>0?IR*xi/sink:0;                           // ft/min, sense vent ni pendent
+  const C=7.47*Math.exp(-0.133*Math.pow(sig,0.55)), B=0.02526*Math.pow(sig,0.54), E=0.715*Math.exp(-3.59e-4*sig);
+  let U=Math.max(0,Umid_ms)*196.85;                       // m/s -> ft/min
+  const Umax=0.9*IR; if(U>Umax) U=Umax;                   // límit de vent de Rothermel
+  const phiW=C*Math.pow(U,B)*Math.pow(rel,-E);
+  const phiS=5.275*Math.pow(beta,-0.3)*tanSlope*tanSlope;
+  const tr=384/sig;                                       // temps de residència (min)
+  return {R0:R0, phiW:phiW, phiS:phiS, IR:IR, tr:tr, C:C, B:B, E:E, rel:rel, sig:sig, beta:beta, Umid_ftmin:U};
+}
+// Combinació vectorial vent + pendent (Finney 1998): direcció de màxima propagació i factor efectiu.
+function conCalcula(fuel, mdead, mlive, Umid_ms, ventDirFrom, tanSlope, aspectUpslope){
+  const r=rothermel(fuel, mdead, mlive, Umid_ms, tanSlope); if(!r) return null;
+  const toRad=d=>d*Math.PI/180;
+  const dirVent=(ventDirFrom+180)%360;                     // cap on bufa = cap on empeny el foc
+  const wx=r.phiW*Math.sin(toRad(dirVent)), wy=r.phiW*Math.cos(toRad(dirVent));
+  const sx=r.phiS*Math.sin(toRad(aspectUpslope)), sy=r.phiS*Math.cos(toRad(aspectUpslope));
+  const ex=wx+sx, ey=wy+sy, phiE=Math.hypot(ex,ey);
+  const dirMax=phiE>1e-6?((Math.atan2(ex,ey)*180/Math.PI)+360)%360:dirVent;
+  const R=r.R0*(1+phiE);                                   // ft/min cap
+  // vent efectiu (ft/min) a partir de phiE, per a la forma de l'el·lipse
+  const Ue=phiE>0?Math.pow(phiE*Math.pow(r.rel,r.E)/r.C,1/r.B):0, Ue_ms=Ue/196.85;
+  let LB=0.936*Math.exp(0.2566*Ue_ms)+0.461*Math.exp(-0.1548*Ue_ms)-0.397; LB=Math.max(1,Math.min(8,LB));
+  const ecc=Math.sqrt(1-1/(LB*LB)), Rb=R*(1-ecc)/(1+ecc), Rf=R/LB;   // cua i flanc
+  const IB=r.IR*R*r.tr/60;                                 // BTU/ft/s
+  const Lf=0.45*Math.pow(Math.max(0,IB),0.46);             // ft
+  return {R_mmin:R*0.3048, Rb_mmin:Rb*0.3048, Rf_mmin:Rf*0.3048, R0_mmin:r.R0*0.3048, dir:dirMax, LB:LB, I_kWm:IB*3.4613, flama_m:Lf*0.3048,
+          phiW:r.phiW, phiS:r.phiS, Ue_ms:Ue_ms, IR:r.IR};
+}
+// El·lipse de propagació (polígon lat/lon) per a t hores des de (lat,lon)
+function conEllipse(lat,lon,res,hores,n){
+  const a=(res.R_mmin+res.Rb_mmin)/2*60*hores, b=a/res.LB, c=(res.R_mmin-res.Rb_mmin)/2*60*hores;
+  const th=res.dir*Math.PI/180, MLAT=111320, MLON=111320*Math.cos(lat*Math.PI/180), pts=[];
+  for(let k=0;k<(n||72);k++){ const t=2*Math.PI*k/(n||72); const xe=b*Math.sin(t), ye=c+a*Math.cos(t);   // eix major cap a la direcció
+    const x=xe*Math.cos(th)+ye*Math.sin(th), y=-xe*Math.sin(th)+ye*Math.cos(th);               // rotació (y=nord)
+    pts.push([lat+y/MLAT, lon+x/MLON]); }
+  return pts;
+}
+// Pendent i orientació a partir d'elevacions (Open-Meteo, lliure i amb CORS): centre + 8 punts a 200 m
+async function conPendent(lat,lon){
+  const d=200, MLAT=111320, MLON=111320*Math.cos(lat*Math.PI/180), P=[[lat,lon]];
+  for(let k=0;k<8;k++){ const a=k*Math.PI/4; P.push([lat+d*Math.cos(a)/MLAT, lon+d*Math.sin(a)/MLON]); }
+  const u='https://api.open-meteo.com/v1/elevation?latitude='+P.map(p=>p[0].toFixed(5)).join(',')+'&longitude='+P.map(p=>p[1].toFixed(5)).join(',');
+  const j=await fetch(u).then(r=>r.json()); const z=j.elevation; if(!z||z.length<9) throw new Error('elevació');
+  // ajust pla z = z0 + gx·x + gy·y (x est, y nord) per mínims quadrats
+  let sxx=0,syy=0,sxy=0,sxz=0,syz=0;
+  for(let k=1;k<9;k++){ const a=(k-1)*Math.PI/4, x=d*Math.sin(a), y=d*Math.cos(a), dz=z[k]-z[0]; sxx+=x*x; syy+=y*y; sxy+=x*y; sxz+=x*dz; syz+=y*dz; }
+  const det=sxx*syy-sxy*sxy, gx=(sxz*syy-syz*sxy)/det, gy=(syz*sxx-sxz*sxy)/det;
+  const tan=Math.hypot(gx,gy), aspectUp=((Math.atan2(gx,gy)*180/Math.PI)+360)%360;   // direcció cap amunt
+  return {tan:tan, graus:Math.atan(tan)*180/Math.PI, aspectUp:aspectUp, z:z[0]};
+}
+// Vent al punt segons la font triada → {vv (km/h a 10 m), dv (d'on ve), font}
+function conVent(src,lat,lon){
+  const tryWN=()=>{ const W=FD&&FD.runData; if(!W||!W.bbox)return null; const B=W.bbox; if(lon<B[0]||lon>B[1]||lat<B[2]||lat>B[3])return null;
+    const dlon=(B[1]-B[0])/(W.nx-1),dlat=(B[3]-B[2])/(W.ny-1), i=Math.round((lon-B[0])/dlon), j=Math.round((B[3]-lat)/dlat); if(i<0||j<0||i>=W.nx||j>=W.ny)return null;
+    const pos=W.landPos[j*W.nx+i]; if(pos<0)return null; const u=W.buf[pos*2]*W.esc, v=W.buf[pos*2+1]*W.esc, sp=Math.hypot(u,v);
+    return {vv:sp*3.6, dv:(Math.atan2(-u,-v)*180/Math.PI+360)%360, font:'WindNinja'}; };
+  const tryModel=()=>{ const p=HARM&&HARM.payload; if(!p)return null; const s=harPuntSerie(p,lat,lon), h=Math.max(0,Math.min(p.hores.length-1,HARM.hour));
+    if(s.vent==null||s.dir==null||s.dir[h]==null)return null; return {vv:s.vent[h], dv:s.dir[h], font:modelInfo().curt+' '+new Date(Date.parse(p.hores[h])).toLocaleString('ca-ES',{day:'2-digit',month:'2-digit',hour:'2-digit'})+'h', serie:s, h:h}; };
+  const tryEst=()=>{ if(!DATA)return null; let best=null,bd=1e9; DATA.estacions.forEach(st=>{ const a=st.actual||{}; if(st.lat==null||a.vv==null||a.dv==null)return; const d=haversineKm(L.latLng(lat,lon),L.latLng(st.lat,st.lon)); if(d<bd){bd=d;best=st;} });
+    if(!best)return null; return {vv:best.actual.vv, dv:best.actual.dv, font:best.nom+' ('+bd.toFixed(1)+' km)', st:best}; };
+  if(src==='man'){ const vv=+$('conVv').value, dv=+$('conDv').value; if(isNaN(vv)||isNaN(dv)||!$('conVv').value)return null; return {vv:vv,dv:dv,font:'manual'}; }
+  if(src==='wn') return tryWN(); if(src==='model') return tryModel(); if(src==='est') return tryEst();
+  return tryWN()||tryModel()||tryEst();
+}
+function conFmdAuto(lat,lon,vent){           // FMd 1 h: del model (si la font és el model i té HR), si no de l'estació més pròxima amb ta+hr
+  if(vent&&vent.serie&&vent.serie.fmd) return {fmd:vent.serie.fmd[vent.h], font:'model'};
+  if(DATA){ let best=null,bd=1e9; DATA.estacions.forEach(st=>{ const a=st.actual||{}; if(st.lat==null||a.ta==null||a.hr==null)return; const d=haversineKm(L.latLng(lat,lon),L.latLng(st.lat,st.lon)); if(d<bd){bd=d;best=st;} });
+    if(best) return {fmd:fmdDe(best.actual.ta,best.actual.hr), font:best.nom+' ('+bd.toFixed(1)+' km)'}; }
+  return {fmd:8, font:'per defecte (8 %)'};
+}
+const FocConLayer=L.Layer.extend({
+  onAdd:function(m){this._m=m;const c=this._c=L.DomUtil.create('canvas','');c.style.position='absolute';c.style.pointerEvents='none';
+    const s=m.getSize();c.width=s.x;c.height=s.y;m.getPanes().overlayPane.appendChild(c);
+    m.on('moveend zoomend resize',this._rs,this);this._rs();},
+  onRemove:function(m){L.DomUtil.remove(this._c);m.off('moveend zoomend resize',this._rs,this);},
+  redraw:function(){if(this._m)this._rs();},
+  _rs:function(){const m=this._m,s=m.getSize(),tl=m.containerPointToLayerPoint([0,0]);L.DomUtil.setPosition(this._c,tl);this._c.width=s.x;this._c.height=s.y;this._dr();},
+  _dr:function(){const ctx=this._c.getContext('2d'),m=this._m,s=m.getSize();ctx.clearRect(0,0,s.x,s.y);
+    const C=FD&&FD.con; if(!C)return;
+    const cols=[['rgba(239,68,68,.38)','#b91c1c'],['rgba(249,115,22,.28)','#c2410c'],['rgba(251,191,36,.20)','#a16207']];
+    C.ellipses.slice().reverse().forEach((e,ri)=>{ const k=C.ellipses.length-1-ri; ctx.beginPath(); e.pts.forEach((q,i)=>{const pt=m.latLngToContainerPoint(q);i?ctx.lineTo(pt.x,pt.y):ctx.moveTo(pt.x,pt.y);}); ctx.closePath();
+      ctx.fillStyle=cols[k][0]; ctx.fill(); ctx.strokeStyle=cols[k][1]; ctx.lineWidth=k===0?2:1.5; ctx.setLineDash(k===0?[]:[6,4]); ctx.stroke(); ctx.setLineDash([]);
+      // etiqueta al cap
+      const head=e.pts[0], hp=m.latLngToContainerPoint(head); ctx.font='bold 11px system-ui'; ctx.textAlign='center'; ctx.textBaseline='bottom';
+      const t=e.hores+' h'; const w=ctx.measureText(t).width+8; ctx.fillStyle='rgba(15,23,42,.85)'; ctx.fillRect(hp.x-w/2,hp.y-16,w,14); ctx.fillStyle='#fde68a'; ctx.fillText(t,hp.x,hp.y-3); });
+    // fletxa de la direcció de màxima propagació
+    const o=m.latLngToContainerPoint([C.lat,C.lon]); const L0=28, th=C.res.dir*Math.PI/180, tx=o.x+L0*Math.sin(th), ty=o.y-L0*Math.cos(th);
+    ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(o.x,o.y); ctx.lineTo(tx,ty); ctx.stroke(); ctx.strokeStyle='#dc2626'; ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(o.x,o.y); ctx.lineTo(tx,ty); ctx.stroke();
+    ctx.font='bold 10px system-ui'; ctx.fillStyle='#fff'; ctx.textAlign='left'; ctx.fillText('BETA', o.x+6, o.y-8);
+  }
+});
+function conOmpleFuels(){ const s=$('conFuel'); if(!s||s.options.length)return; Object.keys(FUELS13).forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=FUELS13[k].nom; s.appendChild(o); }); s.value='6'; }
+async function conCalcClick(){
+  if(!FD||!FD.map){ return; } const c=FD.centre; if(!c){ $('conInfo').textContent='Cal la flama de l\'incendi al mapa.'; return; }
+  const inf=$('conInfo'), btn=$('conCalc'); btn.disabled=true; inf.textContent='Calculant (vent, pendent, Rothermel)…'; $('conRes').innerHTML='';
+  try{
+    const lat=c.lat, lon=c.lng, fuel=FUELS13[$('conFuel').value]||FUELS13[6];
+    const vent=conVent($('conVentSrc').value,lat,lon); if(!vent) throw new Error('no hi ha vent disponible per a la font triada (prova Manual)');
+    let pend; try{ pend=await conPendent(lat,lon); }catch(e){ pend={tan:0,graus:0,aspectUp:0,z:null,err:true}; }
+    const fm=$('conFmd').value?{fmd:+$('conFmd').value,font:'manual'}:conFmdAuto(lat,lon,vent);
+    const m1=Math.max(0.01,Math.min(0.35,fm.fmd/100)), md=[m1,m1+0.01,m1+0.02], ml=Math.max(0.3,(+$('conLive').value||90)/100);
+    const waf=Math.max(0.05,Math.min(1,+$('conWaf').value||0.4)), Umid=vent.vv/3.6*waf;
+    const res=conCalcula(fuel,md,ml,Umid,vent.dv,pend.tan,pend.aspectUp); if(!res) throw new Error('model de combustible no vàlid');
+    const ellipses=[1,3,6].map(h=>({hores:h, pts:conEllipse(lat,lon,res,h)}));
+    FD.con={lat:lat,lon:lon,res:res,ellipses:ellipses,vent:vent,pend:pend,fm:fm,fuel:fuel,quan:Date.now()};
+    if(!FD.conLayer){ FD.conLayer=new FocConLayer(); FD.conLayer.addTo(FD.map); } else FD.conLayer.redraw();
+    // enquadra el mapa perquè es veja el con de 6 h sencer (amb la flama) i redibuixa
+    try{ const b=L.latLngBounds(ellipses[2].pts); b.extend([lat,lon]); FD.map.invalidateSize({animate:false}); FD.map.fitBounds(b.pad(0.25),{animate:true,maxZoom:15}); FD.map.once('moveend',()=>{ if(FD&&FD.conLayer) FD.conLayer.redraw(); }); }catch(e){}
+    focAccOpen('accCon');
+    const km=h=>(res.R_mmin*60*h/1000).toFixed(1);
+    inf.innerHTML='<b style="color:#fbbf24">BETA</b> · vent <b>'+Math.round(vent.vv)+' km/h</b> de '+Math.round(vent.dv)+'° ('+vent.font+') · a mitja flama ×'+waf+' · pendent <b>'+pend.graus.toFixed(0)+'°</b>'+(pend.err?' (sense DEM!)':(' cap a '+Math.round(pend.aspectUp)+'°'))+' · FMd <b>'+fm.fmd.toFixed(1)+' %</b> ('+fm.font+') · viu '+Math.round(ml*100)+' % · '+fuel.nom;
+    $('conRes').innerHTML='<table style="width:100%;border-collapse:collapse;font-size:11px"><tr style="color:#94a3b8"><th style="text-align:left">Cap</th><th>Veloc.</th><th>1 h</th><th>3 h</th><th>6 h</th></tr>'
+      +'<tr><td>Direcció <b>'+Math.round(res.dir)+'°</b> · L/A '+res.LB.toFixed(1)+'</td><td style="text-align:center"><b>'+res.R_mmin.toFixed(1)+'</b> m/min<br>('+(res.R_mmin*0.06).toFixed(2)+' km/h)</td><td style="text-align:center">'+km(1)+' km</td><td style="text-align:center">'+km(3)+' km</td><td style="text-align:center">'+km(6)+' km</td></tr></table>'
+      +'<div style="font-size:11px;color:#cbd5e1;margin-top:4px">Intensitat lineal <b>'+Math.round(res.I_kWm)+' kW/m</b> · longitud de flama <b>'+res.flama_m.toFixed(1)+' m</b> · cua '+res.Rb_mmin.toFixed(1)+' · flanc '+res.Rf_mmin.toFixed(1)+' m/min · sense vent ni pendent '+res.R0_mmin.toFixed(1)+' m/min'
+      +(res.I_kWm>4000?' · <span style="color:#f87171">intensitat molt alta: possible foc de capçades, fora de l\'abast del model</span>':'')+'</div>';
+  }catch(e){ inf.textContent='No s\'ha pogut calcular: '+(e&&e.message||e); }
+  btn.disabled=false;
+}
+function conEsborra(){ if(FD){ FD.con=null; if(FD.conLayer) FD.conLayer.redraw(); } if($('conInfo')) $('conInfo').textContent='Con esborrat.'; if($('conRes')) $('conRes').innerHTML=''; }
+conOmpleFuels();
+if($('conCalc')) $('conCalc').onclick=conCalcClick;
+if($('conClear')) $('conClear').onclick=conEsborra;
+if($('conVentSrc')) $('conVentSrc').onchange=()=>{ const man=$('conVentSrc').value==='man'; $('conVv').disabled=!man; $('conDv').disabled=!man; };
 initFocAccordion();
 // ====== EXPLORADOR DE PREVISIÓ (pestanya Previsió): clic al mapa -> meteograma + acumulats + taula ======
 const PEX={lat:null,lon:null,chart:null,marker:null,pick:false,_s:null};
@@ -5332,7 +5711,7 @@ async function prevExporta(){
       c.fillText('Model '+modelInfo().nom+' · passada '+p.run.slice(8,10)+'Z del '+p.run.slice(6,8)+'/'+p.run.slice(4,6)+'/'+p.run.slice(0,4)+' · hores en hora local   ·   Informe generat: '+new Date().toLocaleString('ca-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}), 14*S, fy);
       c.textAlign='right';
       c.fillText('Dades: '+modelInfo().font+' · Base: IGN   ·   Eina desenvolupada per Javi Miró', W-14*S, fy); }
-    const a=document.createElement('a'); a.download='previsio_harmonie_'+HARM.varK+'_'+p.run+'_h'+h+'.png'; a.href=cv.toDataURL('image/png'); a.click();
+    cv.toBlob(bl=>lliuraImatge(bl,'previsio_'+HARM.model+'_'+HARM.varK+'_'+p.run+'_h'+h+'.png','Previsió meteorològica · '+modelInfo().curt),'image/png');
   }catch(e){ alert('No s\'ha pogut generar la imatge: '+(e&&e.message||e)); }
   finally{ btns.forEach((b,i)=>{b.disabled=false;b.textContent=olds[i];}); }
 }
@@ -5410,7 +5789,7 @@ async function pexExportaPunt(){
     const fy=H-footH/2; c.textBaseline='middle'; c.fillStyle='#777'; c.font=(10.5*S)+'px Arial'; c.textAlign='left';
     c.fillText('Model '+modelInfo().nom+' · '+runTxt+' · hores en hora local   ·   Informe generat: '+new Date().toLocaleString('ca-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}), m, fy);
     c.textAlign='right'; c.fillText('Dades: '+modelInfo().font+' · Base: IGN   ·   Eina desenvolupada per Javi Miró', W-m, fy);
-    const a=document.createElement('a'); a.download='previsio_punt_'+PEX.lat.toFixed(3)+'_'+PEX.lon.toFixed(3)+'_'+p.run+'.png'; a.href=cv.toDataURL('image/png'); a.click();
+    cv.toBlob(bl=>lliuraImatge(bl,'previsio_punt_'+PEX.lat.toFixed(3)+'_'+PEX.lon.toFixed(3)+'_'+p.run+'.png','Previsió del punt · '+modelInfo().curt),'image/png');
   }catch(e){ alert('No s\'ha pogut generar la imatge: '+(e&&e.message||e)); }
   finally{ if(wrap){ try{wrap.remove();}catch(e){} } if(btn){btn.disabled=false;btn.textContent=old;} }
 }
@@ -5518,7 +5897,7 @@ function focDrawStations(){
   }
 }
 function focDrawPerims(){ if(FD&&FD.perimLayer) FD.perimLayer.redraw(); }
-function focFlame(){ if(!FD||!FD.map)return; if(FD.flameM){FD.map.removeLayer(FD.flameM);FD.flameM=null;} if(FD.foc.flama) FD.flameM=L.marker([FD.foc.flama.lat,FD.foc.flama.lng],{icon:flamaIcon()}).addTo(FD.map); }
+function focFlame(){ if(!FD||!FD.map)return; if(FD.flameM){FD.map.removeLayer(FD.flameM);FD.flameM=null;} if(FD.foc.flama) FD.flameM=L.marker([FD.foc.flama.lat,FD.foc.flama.lng],{icon:L.divIcon({className:'foc-flama-m',html:FLAMA_SVG,iconSize:[52,64],iconAnchor:[26,62]})}).addTo(FD.map); }
 function focRenderEstList(){
   const box=$('focEstList'); if(!box)return;
   box.innerHTML=FD.nears.slice(0,14).map(o=>{ const id=String(o.st.idema), on=FD.chartIds.indexOf(id)>=0;
@@ -5598,18 +5977,24 @@ async function focComposaMapa(S){
   // s'ignoren a la captura i es dibuixen per PROJECCIÓ; els discos/etiquetes (markerPane) es
   // capturen a part i es posen els ÚLTIMS. Ordre final: etiquetes > límits > capes > fons.
   const ambLimits=!!(FD.limitsLayer && (comarcaGeo||catGeo));
+  // la FLAMA i els marcadors es dibuixen/capturen a part: html2canvas els desplaça a zoom fraccionari
   const base=await html2canvas(el,{useCORS:true, backgroundColor:(FD.fonsKey==='blanc'?'#ffffff':'#0b1220'), scale:S, logging:false,
-    ignoreElements:x=>x.classList&&(x.classList.contains('leaflet-control-container')||x.classList.contains('leaflet-comarques-pane')||(ambLimits&&x.classList.contains('leaflet-marker-pane')))});
-  const c=base.getContext('2d');
-  if(ambLimits){
-    dibuixaLimitsCanvas(c, FD.map, 0, 0, base.width/el.clientWidth, base.height/el.clientHeight, S, FD.fonsKey||'satellite');
-    try{
-      const mk=await html2canvas(el,{useCORS:true, backgroundColor:null, scale:S, logging:false,
-        ignoreElements:x=>x.classList&&(x.classList.contains('leaflet-control-container')||x.classList.contains('leaflet-overlay-pane')||x.classList.contains('leaflet-tile-pane')||x.classList.contains('leaflet-comarques-pane')),
-        onclone:dc=>{ dc.querySelectorAll('.leaflet-container,.leaflet-pane,.leaflet-tile-container').forEach(e=>{e.style.background='transparent';}); }});
-      c.drawImage(mk,0,0);
-    }catch(e){}
-  }
+    ignoreElements:x=>x.classList&&(x.classList.contains('leaflet-control-container')||x.classList.contains('leaflet-comarques-pane')||x.classList.contains('leaflet-marker-pane')||x.classList.contains('leaflet-tooltip-pane'))});
+  const c=base.getContext('2d'), sx=base.width/el.clientWidth, sy=base.height/el.clientHeight;
+  if(ambLimits) dibuixaLimitsCanvas(c, FD.map, 0, 0, sx, sy, S, FD.fonsKey||'satellite');
+  try{   // marcadors (estacions, punts de previsió…) sense la flama
+    const mk=await html2canvas(el,{useCORS:true, backgroundColor:null, scale:S, logging:false,
+      ignoreElements:x=>x.classList&&(x.classList.contains('leaflet-control-container')||x.classList.contains('leaflet-overlay-pane')||x.classList.contains('leaflet-tile-pane')||x.classList.contains('leaflet-comarques-pane')||x.classList.contains('foc-flama-m')),
+      onclone:dc=>{ dc.querySelectorAll('.leaflet-container,.leaflet-pane,.leaflet-tile-container').forEach(e=>{e.style.background='transparent';}); }});
+    c.drawImage(mk,0,0);
+  }catch(e){}
+  // FLAMA per PROJECCIÓ (sempre al lloc exacte)
+  if(FD.foc&&FD.foc.flama){ try{
+    const pt=FD.map.latLngToContainerPoint([FD.foc.flama.lat,FD.foc.flama.lng]);
+    const img=new Image(); img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(FLAMA_SVG.replace(/ style="[^"]*"/,''));
+    await new Promise(r=>{ img.onload=r; img.onerror=r; });
+    const w=52*S, h=64*S; c.drawImage(img, pt.x*sx-w/2, pt.y*sy-h*62/64, w, h);
+  }catch(e){} }
   if(FD.runData && $('focVentOn').checked) dibuixaLlegendaVentBox(c, 12*S, base.height-58*S, S, 'Vent WindNinja (km/h)');
   return base;
 }
@@ -5642,48 +6027,61 @@ async function focCapturaPanell(S){
 async function focExportImatge(){
   if(typeof html2canvas!=='function'){ alert('Falta la llibreria de captura.'); return; }
   const btn=$('focExport'),old=btn.textContent; btn.disabled=true; btn.textContent='Generant…';
+  try{ await pyrometFontLlesta(); }catch(e){}
   try{
+    // INFORME D'INCENDI en DIN A4 apaïsat, fons BLANC, mateix llenguatge que la resta d'exports:
+    // capçalera (logo Pyromet + títol a l'esquerra, Bombers a la dreta), mapa a l'esquerra (flama per
+    // projecció), panell obert a la dreta, llegenda de perímetres i con, peu d'una línia.
     const S=2, mapC=await focComposaMapa(S);
-    // PANELL DRET: s'exporta la secció de l'acordió que estiga OBERTA (previsió del model, WindNinja previsió,
-    // estacions & meteogrames o perímetres), desplegada del tot (sense barres de desplaçament) perquè isca sencera.
-    // Si no n'hi ha cap d'oberta (o el mapa està en "Mapa gran"), només s'exporta el mapa.
     const chartsC=await focCapturaPanell(S);
-    const pad=18*S, head=66*S, foot=30*S, gap=16*S;
+    const W=1240*S, H=877*S, m=14*S, footH=EXPORT_PEU*S;
     const q=ms=>new Date(ms).toLocaleString('ca-ES',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-    const hm=ms=>new Date(ms).toLocaleTimeString('ca-ES',{hour:'2-digit',minute:'2-digit'});
-    // apaïsat: mapa a l'esquerra, meteogrames a la dreta, alineats a dalt
-    const ps=focPerimsList(), cols=focPerimColors(ps.length);
-    const legH=ps.length?(20*S+ps.length*17*S):0;                 // llegenda d'hores dels perímetres
-    const bodyH=Math.max(mapC.height+legH, chartsC?chartsC.height:0);
-    const W=pad+mapC.width+(chartsC?(gap+chartsC.width):0)+pad, H=head+bodyH+foot+2*pad;
     const cv=document.createElement('canvas'); cv.width=W; cv.height=H; const c=cv.getContext('2d');
-    c.fillStyle='#0b1220'; c.fillRect(0,0,W,H);
-    c.fillStyle='#fff'; c.textBaseline='middle'; c.textAlign='left'; c.font='bold '+(23*S)+'px Arial';
-    c.fillText('🔥 '+(FD.foc.nom||'Incendi'), pad, pad+head*0.34);
+    c.fillStyle='#fff'; c.fillRect(0,0,W,H);
+    const caixa=(bx,by,bw,bh,r)=>{ c.save(); c.fillStyle='#fff'; c.strokeStyle='rgba(0,0,0,.25)'; c.lineWidth=S; c.beginPath(); c.roundRect?c.roundRect(bx,by,bw,bh,(r||8)*S):c.rect(bx,by,bw,bh); c.fill(); c.stroke(); c.restore(); };
+    // ---- CAPÇALERA ----
+    const logoH=30*S, top=m, nom=FD.foc.nom||'Incendi';
+    const bombersOn=(typeof LOGO_BOMBERS_ON==='undefined')||LOGO_BOMBERS_ON;
+    const logoW=(logoBombersImg.complete&&logoBombersImg.naturalWidth)?logoH*logoBombersImg.naturalWidth/logoBombersImg.naturalHeight:logoH*2.87;
+    const lbw=logoW+20*S, lbh=logoH+16*S;
+    if(bombersOn){ caixa(W-m-lbw, top, lbw, lbh); dibuixaLogoBombers(c, W-m-lbw+10*S, top+8*S, logoH); }
     const ventMs=(FD.runData&&FD.runData.t&&FD.runData.t[0])||null;
-    c.fillStyle='#cbd5e1'; c.font=(13*S)+'px Arial'; c.textAlign='left';
-    c.fillText('Dades meteorològiques de les '+q(FD.tSel)+(ventMs?('   ·   Camp de vent WindNinja de les '+q(ventMs)):'')
-      +(FD.foc.inici?('   ·   Inici: '+q(FD.foc.inici)):'')+(FD.foc.fi?('   ·   🏁 '+q(FD.foc.fi)):'')
-      +((chartsC&&chartsC.$titol)?('   ·   Panell: '+chartsC.$titol):''), pad, pad+head*0.72);
-    // logo Bombers (dalt a la dreta): "bombers" + 4 quadrats
-    const lh=Math.round(head*0.60); c.font='900 '+Math.round(lh*0.66)+'px Arial';
-    const lw=c.measureText('bombers').width; if(LOGO_BOMBERS_ON) dibuixaLogoBombers(c, W-pad-lw, pad+(head-lh)/2, lh);
-    const mapY=pad+head, chX=pad+mapC.width+gap;
-    c.drawImage(mapC, pad, mapY);
-    c.strokeStyle='#334155'; c.lineWidth=S; c.strokeRect(pad,mapY,mapC.width,mapC.height);
-    // llegenda dels perímetres (color + hora)
-    if(ps.length){ let ly=mapY+mapC.height+14*S;
-      c.textAlign='left'; c.textBaseline='middle'; c.fillStyle='#cbd5e1'; c.font='bold '+(12*S)+'px Arial';
-      c.fillText('Evolució del perímetre:', pad, ly); ly+=18*S;
-      ps.forEach((p,k)=>{ c.fillStyle=cols[k].s; c.fillRect(pad,ly-6*S,16*S,12*S); c.strokeStyle='#0b1220'; c.lineWidth=S; c.strokeRect(pad,ly-6*S,16*S,12*S);
-        c.fillStyle='#e5e7eb'; c.font=(12*S)+'px Arial'; c.textAlign='left';
-        c.fillText('Perímetre '+(k+1)+' · '+q(p.ts)+(k===0?'  (inicial)':(k===ps.length-1?'  (últim)':'')), pad+22*S, ly); ly+=17*S; });
-    }
-    if(chartsC) c.drawImage(chartsC, chX, mapY);
-    c.textAlign='left'; c.fillStyle='#64748b'; c.font=(11*S)+'px Arial';
-    c.fillText('Generat '+new Date().toLocaleString('ca-ES')+' · Vent d\'alta resolució WindNinja · Dades AVAMET · Base: Esri', pad, H-pad-foot*0.4);
-    cv.toBlob(bl=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(bl);
-      a.download='incendi_'+((FD.foc.nom||'incendi').replace(/[^\w]+/g,'_'))+'.png'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); },'image/png');
+    const sub=['Dades meteo de les '+q(FD.tSel)].concat(ventMs?['WindNinja de les '+q(ventMs)]:[], FD.foc.inici?['Inici '+q(FD.foc.inici)]:[], FD.foc.fi?['🏁 '+q(FD.foc.fi)]:[]).join('  ·  ');
+    const L=[{t:'INCENDI · '+nom.toUpperCase(), f:'bold '+(20*S)+'px Arial', col:'#b00000', h:24*S},{t:sub, f:'bold '+(12.5*S)+'px Arial', col:'#334155', h:17*S}];
+    let maxw=0; L.forEach(l=>{ c.font=l.f; maxw=Math.max(maxw,c.measureText(l.t).width); });
+    const pmH=34*S, pmW=amplePyromet(c,pmH), pmPad=12*S, pmGap=14*S;
+    const tbw=Math.min(W-2*m-(bombersOn?lbw+10*S:0), pmPad+pmW+pmGap+maxw+28*S), tbh=Math.max(L.reduce((a,l)=>a+l.h,0)+14*S, pmH+16*S);
+    caixa(m, top, tbw, tbh);
+    dibuixaLogoPyromet(c, m+pmPad, top+(tbh-pmH)/2, pmH, true);
+    c.strokeStyle='rgba(0,0,0,.18)'; c.lineWidth=S; c.beginPath(); c.moveTo(m+pmPad+pmW+pmGap/2, top+8*S); c.lineTo(m+pmPad+pmW+pmGap/2, top+tbh-8*S); c.stroke();
+    { const tx0=m+pmPad+pmW+pmGap+14*S, th0=L.reduce((a,l)=>a+l.h,0); c.textAlign='left'; c.textBaseline='middle'; let ty=top+(tbh-th0)/2;
+      L.forEach(l=>{ c.font=l.f; c.fillStyle=l.col; let t=l.t; const maxTw=tbw-(tx0-m)-14*S; while(c.measureText(t).width>maxTw&&t.length>8) t=t.slice(0,-2)+'…'; c.fillText(t, tx0, ty+l.h/2); ty+=l.h; }); }
+    // ---- COS: mapa (esquerra) + panell (dreta) ----
+    const y0=top+Math.max(tbh,lbh)+12*S, bodyH=H-footH-10*S-y0;
+    const ps=focPerimsList(), cols=focPerimColors(ps.length);
+    const legH=ps.length?(16*S+ps.length*15*S):0, conH=FD.con?44*S:0;
+    const panW=chartsC?Math.min(0.42*(W-2*m), chartsC.width*((bodyH)/chartsC.height)):0;   // el panell cap sencer d'alt
+    const mapBoxW=W-2*m-(chartsC?panW+12*S:0), mapBoxH=bodyH-legH-conH;
+    const sc=Math.min(mapBoxW/mapC.width, mapBoxH/mapC.height), mw=Math.round(mapC.width*sc), mh=Math.round(mapC.height*sc);
+    c.drawImage(mapC,0,0,mapC.width,mapC.height, m, y0, mw, mh); c.strokeStyle='#999'; c.lineWidth=S; c.strokeRect(m,y0,mw,mh);
+    let ly=y0+mh+8*S;
+    if(ps.length){ c.textAlign='left'; c.textBaseline='middle'; c.fillStyle='#111'; c.font='bold '+(11.5*S)+'px Arial'; c.fillText('Evolució del perímetre', m, ly+6*S); ly+=16*S;
+      ps.forEach((p,k)=>{ c.fillStyle=cols[k].s; c.fillRect(m,ly-5*S,14*S,10*S); c.strokeStyle='#333'; c.lineWidth=S; c.strokeRect(m,ly-5*S,14*S,10*S);
+        c.fillStyle='#334155'; c.font=(11*S)+'px Arial'; c.fillText('Perímetre '+(k+1)+' · '+q(p.ts)+(k===0?'  (inicial)':(k===ps.length-1?'  (últim)':'')), m+20*S, ly); ly+=15*S; }); }
+    if(FD.con){ const r=FD.con.res; c.textAlign='left'; c.textBaseline='middle';
+      c.fillStyle='#b45309'; c.font='bold '+(11.5*S)+'px Arial'; c.fillText('Con de propagació (BETA · Rothermel, combustible homogeni, sense focus secundaris ni capçades)', m, ly+6*S); ly+=16*S;
+      c.fillStyle='#334155'; c.font=(11*S)+'px Arial';
+      c.fillText('Cap '+r.R_mmin.toFixed(1)+' m/min cap a '+Math.round(r.dir)+'° · 1 h '+(r.R_mmin*60/1000).toFixed(1)+' km · 3 h '+(r.R_mmin*180/1000).toFixed(1)+' km · 6 h '+(r.R_mmin*360/1000).toFixed(1)+' km · '+Math.round(r.I_kWm)+' kW/m · flama '+r.flama_m.toFixed(1)+' m', m, ly); ly+=14*S;
+      c.fillStyle='#64748b'; c.fillText(FD.con.fuel.nom+' · vent '+Math.round(FD.con.vent.vv)+' km/h de '+Math.round(FD.con.vent.dv)+'° ('+FD.con.vent.font+') · pendent '+FD.con.pend.graus.toFixed(0)+'° · FMd '+FD.con.fm.fmd.toFixed(1)+' % ('+FD.con.fm.font+')', m, ly); }
+    if(chartsC){ const px=W-m-panW, psc=Math.min(panW/chartsC.width, bodyH/chartsC.height), pw=Math.round(chartsC.width*psc), ph=Math.round(chartsC.height*psc);
+      c.save(); c.beginPath(); c.roundRect?c.roundRect(px,y0,pw,ph,8*S):c.rect(px,y0,pw,ph); c.clip(); c.drawImage(chartsC,0,0,chartsC.width,chartsC.height, px,y0,pw,ph); c.restore();
+      c.strokeStyle='#999'; c.lineWidth=S; c.beginPath(); c.roundRect?c.roundRect(px,y0,pw,ph,8*S):c.rect(px,y0,pw,ph); c.stroke(); }
+    // ---- PEU ----
+    const fy=H-footH/2; c.textBaseline='middle'; c.fillStyle='#777'; c.font=(10.5*S)+'px Arial'; c.textAlign='left';
+    c.fillText('Informe d\'incendi · generat '+q(Date.now())+' (hora local)'+(chartsC&&chartsC.$titol?('   ·   Panell: '+chartsC.$titol):''), m, fy);
+    c.textAlign='right'; c.fillText('Vent d\'alta resolució WindNinja · Dades: AVAMET (MeteoXarxa) · Base: Esri   ·   Eina desenvolupada per Javi Miró', W-m, fy);
+    const nomFoc=FD.foc.nom||'incendi';
+    cv.toBlob(bl=>lliuraImatge(bl,'incendi_'+nomFoc.replace(/[^\w]+/g,'_')+'.png','Incendi · '+nomFoc),'image/png');
   }catch(e){ alert('No s\'ha pogut exportar: '+(e&&e.message||e)); }
   btn.disabled=false; btn.textContent=old;
 }
@@ -6168,6 +6566,7 @@ async function desaCorreguda(){
       if(typeof netejaAnalisi==='function') netejaAnalisi();
       if(t==='temps' && typeof reviewMode!=='undefined' && reviewMode && typeof tornaDirecte==='function') tornaDirecte();
       else if(typeof render==='function') render();
+      if(t==='incendi' && typeof bomArrenca==='function') bomArrenca();
       if(t==='prev'){ if(typeof pexInit==='function') pexInit(); if(typeof harMapToggle==='function') harMapToggle(true); }
       else { if(typeof harMapToggle==='function') harMapToggle(false); if(typeof pexCloseRight==='function') pexCloseRight(); }
     }catch(e){}
@@ -6184,6 +6583,8 @@ async function desaCorreguda(){
   document.querySelectorAll('#tabs .tab').forEach(b=> b.addEventListener('click',()=>mostraTab(b.dataset.t)) );
   window.mostraTab=mostraTab; mostraTab('temps');
 })();
+// PWA: service worker (instal·lable + última situació disponible sense connexió). Només en https.
+if('serviceWorker' in navigator && location.protocol==='https:'){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
 </script>
 </body>
 </html>
